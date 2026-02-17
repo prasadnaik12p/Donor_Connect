@@ -57,19 +57,20 @@ exports.getNearbyEmergencies = async (req, res) => {
 exports.acceptEmergency = async (req, res) => {
   try {
     const { emergencyId, ambulanceId } = req.body;
-    
-    const emergency = await Emergency.findById(emergencyId);
+    const io = req.app.get("io");
+
+    const emergency = await Emergency.findById(emergencyId).populate("userId");
     if (!emergency) {
       return res.status(404).json({
         success: false,
-        message: "Emergency not found"
+        message: "Emergency not found",
       });
     }
 
-    if (emergency.status !== 'pending') {
+    if (emergency.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message: "Emergency already assigned"
+        message: "Emergency already assigned",
       });
     }
 
@@ -77,33 +78,55 @@ exports.acceptEmergency = async (req, res) => {
     if (!ambulance) {
       return res.status(404).json({
         success: false,
-        message: "Ambulance not found"
+        message: "Ambulance not found",
       });
     }
 
     // Update emergency
-    emergency.status = 'assigned';
+    emergency.status = "assigned";
     emergency.assignedAmbulance = ambulanceId;
     emergency.acceptedAt = new Date();
     await emergency.save();
 
     // Update ambulance
-    ambulance.status = 'onDuty';
+    ambulance.status = "onDuty";
     ambulance.assignedUser = emergency.userId;
     await ambulance.save();
+
+    // 🚨 EMIT REAL-TIME EVENT: Notify all other ambulances that this emergency is taken
+    if (io) {
+      io.to("emergency-room").emit("emergency-taken", {
+        emergencyId: emergency._id,
+        ambulanceId: ambulance._id,
+        ambulanceName: ambulance.name,
+        ambulancePhone: ambulance.phone,
+        message: `Emergency has been assigned to ${ambulance.name}`,
+      });
+
+      // Notify the user that ambulance accepted
+      io.to(`user-${emergency.userId._id}`).emit("emergency-accepted", {
+        emergencyId: emergency._id,
+        ambulanceId: ambulance._id,
+        ambulanceName: ambulance.name,
+        ambulancePhone: ambulance.phone,
+        driverName: ambulance.driverName,
+        estimatedTime: "5-10 minutes",
+        message: "Ambulance is on the way to your location!",
+      });
+    }
 
     res.json({
       success: true,
       message: "Emergency accepted successfully",
       emergency,
-      ambulance
+      ambulance,
     });
   } catch (error) {
     console.error("Error accepting emergency:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -112,30 +135,79 @@ exports.acceptEmergency = async (req, res) => {
 exports.createEmergency = async (req, res) => {
   try {
     const { userId, location, coordinates, emergencyType, notes } = req.body;
+    const io = req.app.get("io");
+
+    const userDetails = await User.findById(userId);
 
     const emergency = await Emergency.create({
       userId,
       location,
       coordinates: {
         type: "Point",
-        coordinates: [coordinates.lng, coordinates.lat]
+        coordinates: [coordinates.lng, coordinates.lat],
       },
-      emergencyType: emergencyType || 'Medical Emergency',
+      emergencyType: emergencyType || "Medical Emergency",
       notes,
-      status: 'pending'
+      status: "pending",
     });
+
+    // Populate user details for the response
+    const populatedEmergency = await emergency.populate("userId", "name phone");
+
+    // 🚨 EMIT REAL-TIME EVENT: Broadcast new emergency ONLY to AVAILABLE ambulances
+    if (io) {
+      // ✅ FIXED: Query database for ONLY available ambulances
+      const availableAmbulances = await Ambulance.find({
+        status: "available",
+        isApproved: true,
+      });
+
+      console.log(
+        `📢 Broadcasting new emergency to ${availableAmbulances.length} AVAILABLE ambulance(s)`,
+      );
+
+      // Only send to ambulances with "available" status
+      availableAmbulances.forEach((ambulance) => {
+        io.to(`ambulance-${ambulance._id}`).emit("new-emergency", {
+          _id: emergency._id,
+          userId: populatedEmergency.userId,
+          location: emergency.location,
+          coordinates: emergency.coordinates,
+          emergencyType: emergency.emergencyType,
+          notes: emergency.notes,
+          status: emergency.status,
+          createdAt: emergency.createdAt,
+          message: `New emergency request at ${location}`,
+        });
+      });
+
+      // Also broadcast to emergency-room for any other listeners
+      io.to("emergency-room").emit("new-emergency", {
+        _id: emergency._id,
+        userId: populatedEmergency.userId,
+        location: emergency.location,
+        coordinates: emergency.coordinates,
+        emergencyType: emergency.emergencyType,
+        notes: emergency.notes,
+        status: emergency.status,
+        createdAt: emergency.createdAt,
+        message: `New emergency request at ${location}`,
+      });
+    } else {
+      console.error("❌ Socket.io not available for broadcasting emergency");
+    }
 
     res.status(201).json({
       success: true,
       message: "Emergency request created",
-      emergency
+      emergency: populatedEmergency,
     });
   } catch (error) {
     console.error("Error creating emergency:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };

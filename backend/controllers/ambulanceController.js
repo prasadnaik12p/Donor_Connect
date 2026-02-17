@@ -111,7 +111,7 @@ exports.loginAmbulance = async (req, res) => {
 // Get ambulance dashboard data with emergencies
 exports.getAmbulanceDashboard = async (req, res) => {
   try {
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
 
     const ambulance = await Ambulance.findById(ambulanceId)
       .select("-password")
@@ -196,7 +196,7 @@ exports.getAmbulanceDashboard = async (req, res) => {
 // Get nearby emergencies for ambulance
 exports.getNearbyEmergencies = async (req, res) => {
   try {
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
     const { radius = 10000 } = req.query; // Default 10km radius
 
     const ambulance = await Ambulance.findById(ambulanceId);
@@ -239,13 +239,13 @@ exports.getNearbyEmergencies = async (req, res) => {
     const emergenciesWithDistance = emergencies.map((emergency) => {
       // Ensure emergency coordinates are numbers too
       const emergencyCoords = emergency.coordinates.coordinates.map((coord) =>
-        parseFloat(coord)
+        parseFloat(coord),
       );
       const distance = calculateDistance(
         ambulanceCoordinates[1], // lat
         ambulanceCoordinates[0], // lng
         emergencyCoords[1], // emergency lat
-        emergencyCoords[0] // emergency lng
+        emergencyCoords[0], // emergency lng
       );
 
       return {
@@ -273,7 +273,7 @@ exports.getNearbyEmergencies = async (req, res) => {
 // Accept emergency
 exports.acceptEmergency = async (req, res) => {
   try {
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
     const { emergencyId } = req.body;
 
     if (!emergencyId) {
@@ -299,10 +299,44 @@ exports.acceptEmergency = async (req, res) => {
       });
     }
 
-    if (emergency.status !== "pending") {
-      return res.status(400).json({
+    // Check if emergency is already assigned
+    if (emergency.status === "assigned") {
+      const assignedAmbulance = await Ambulance.findById(
+        emergency.assignedAmbulance,
+      );
+      const driverName = assignedAmbulance
+        ? assignedAmbulance.driverName || assignedAmbulance.name
+        : "Another ambulance driver";
+
+      console.warn(
+        `⚠️ Emergency ${emergencyId} already accepted by ambulance ${emergency.assignedAmbulance} (${driverName})`,
+      );
+
+      return res.status(409).json({
         success: false,
-        message: "Emergency already assigned or completed",
+        code: "ALREADY_ACCEPTED",
+        message: `Request already accepted by ${driverName}`,
+        assignedAmbulance: {
+          id: emergency.assignedAmbulance,
+          name: assignedAmbulance?.name || "Unknown",
+          driverName: driverName,
+        },
+      });
+    }
+
+    if (emergency.status === "completed") {
+      return res.status(409).json({
+        success: false,
+        code: "ALREADY_COMPLETED",
+        message: "This emergency has already been completed",
+      });
+    }
+
+    if (emergency.status !== "pending") {
+      return res.status(409).json({
+        success: false,
+        code: "INVALID_STATUS",
+        message: `Cannot accept emergency with status: ${emergency.status}`,
       });
     }
 
@@ -313,8 +347,9 @@ exports.acceptEmergency = async (req, res) => {
     });
 
     if (existingAssignment) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
+        code: "ALREADY_ASSIGNED_OTHER",
         message: "You already have an assigned emergency. Complete it first.",
       });
     }
@@ -330,14 +365,27 @@ exports.acceptEmergency = async (req, res) => {
     ambulance.assignedUser = emergency.userId;
     await ambulance.save();
 
-    // Emit update via WebSocket if available
+    // 🚨 EMIT REAL-TIME UPDATES
     const io = req.app.get("io");
     if (io) {
-      io.emit("emergency-accepted", {
-        emergencyId,
-        ambulanceId,
+      // Notify all other ambulances that this emergency is taken
+      io.to("emergency-room").emit("emergency-taken", {
+        emergencyId: emergency._id,
+        ambulanceId: ambulance._id,
         ambulanceName: ambulance.name,
-        userId: emergency.userId,
+        ambulancePhone: ambulance.phone,
+        message: `Emergency has been assigned to ${ambulance.name}`,
+      });
+
+      // Notify the user that ambulance accepted
+      io.to(`user-${emergency.userId}`).emit("emergency-accepted", {
+        emergencyId: emergency._id,
+        ambulanceId: ambulance._id,
+        ambulanceName: ambulance.name,
+        ambulancePhone: ambulance.phone,
+        driverName: ambulance.driverName,
+        estimatedTime: "5-10 minutes",
+        message: "Ambulance is on the way to your location!",
       });
     }
 
@@ -364,7 +412,7 @@ exports.acceptEmergency = async (req, res) => {
 // Complete emergency
 exports.completeEmergency = async (req, res) => {
   try {
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
     const { emergencyId } = req.body;
 
     if (!emergencyId) {
@@ -390,10 +438,25 @@ exports.completeEmergency = async (req, res) => {
       });
     }
 
-    if (emergency.assignedAmbulance.toString() !== ambulanceId) {
+    // Check if ambulance is assigned to this emergency
+    console.log("Complete Emergency Debug:");
+    console.log("  Ambulance ID:", ambulanceId);
+    console.log("  Assigned Ambulance:", emergency.assignedAmbulance);
+    console.log("  Emergency Status:", emergency.status);
+
+    // Properly compare MongoDB ObjectIds
+    if (
+      !emergency.assignedAmbulance ||
+      !emergency.assignedAmbulance.equals(ambulanceId)
+    ) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to complete this emergency",
+        debug: {
+          assignedTo: emergency.assignedAmbulance?.toString() || null,
+          requestedBy: ambulanceId.toString(),
+          match: emergency.assignedAmbulance?.equals(ambulanceId) || false,
+        },
       });
     }
 
@@ -426,7 +489,7 @@ exports.completeEmergency = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
 
     const ambulance = await Ambulance.findById(ambulanceId);
     if (!ambulance) {
@@ -485,7 +548,7 @@ exports.updateStatus = async (req, res) => {
 exports.updateLocation = async (req, res) => {
   try {
     const { coordinates, status } = req.body;
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
 
     if (
       !coordinates ||
@@ -595,7 +658,7 @@ exports.getNearbyAmbulances = async (req, res) => {
           select: "name city address phone",
         })
         .then((ambulances) =>
-          ambulances.filter((amb) => amb.hospital !== null)
+          ambulances.filter((amb) => amb.hospital !== null),
         );
 
       return res.json({
@@ -632,7 +695,7 @@ exports.getNearbyAmbulances = async (req, res) => {
 // Get ambulance emergency history
 exports.getEmergencyHistory = async (req, res) => {
   try {
-    const ambulanceId = req.user.id;
+    const ambulanceId = req.user._id;
 
     const emergencies = await Emergency.find({
       assignedAmbulance: ambulanceId,
@@ -660,7 +723,7 @@ exports.getEmergencyHistory = async (req, res) => {
 // Logout ambulance
 exports.logoutAmbulance = async (req, res) => {
   try {
-    console.log(`🚑 Ambulance ${req.user.id} logged out`);
+    console.log(`🚑 Ambulance ${req.user._id} logged out`);
     res.json({
       success: true,
       message: "Logout successful",

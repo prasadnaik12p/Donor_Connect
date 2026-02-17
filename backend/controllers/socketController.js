@@ -1,5 +1,6 @@
 const Ambulance = require("../models/Ambulance");
 const User = require("../models/User");
+const Emergency = require("../models/Emergency");
 
 // Store connected users and ambulances
 const connectedUsers = new Map();
@@ -14,7 +15,87 @@ const socketController = (io) => {
     socket.on("user-join", (userId) => {
       connectedUsers.set(userId, socket.id);
       socket.userId = userId;
+      socket.join(`user-${userId}`);
       console.log(`👤 User ${userId} joined`);
+    });
+
+    // ✅ NEW: Donor joins blood donation room
+    socket.on("donor-join", async (userId) => {
+      try {
+        socket.userId = userId;
+        socket.join("blood-donors");
+        connectedUsers.set(`donor-${userId}`, socket.id);
+
+        const bloodDonorsCount =
+          io.sockets.adapter.rooms.get("blood-donors")?.size || 0;
+
+        console.log(
+          `💉 Donor ${userId} joined blood-donors room (${bloodDonorsCount} donors online)`,
+        );
+
+        // Notify donor of successful connection
+        socket.emit("donor-connected", {
+          message: "Connected to blood donation network",
+          onlineDonors: bloodDonorsCount,
+          timestamp: new Date(),
+        });
+
+        // Broadcast donor online status to all others in the room
+        socket.to("blood-donors").emit("donor-online", {
+          message: "A new donor is now available",
+          onlineDonors: bloodDonorsCount,
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        console.error("Error donor joining:", error);
+        socket.emit("connection-error", {
+          message: "Error connecting to blood donation network",
+        });
+      }
+    });
+
+    // ✅ NEW: Handle blood donation request acceptance
+    socket.on("accept-blood-request", async (data) => {
+      try {
+        const { requestId, donorId } = data;
+        console.log(`💉 Donor ${donorId} accepting blood request ${requestId}`);
+
+        socket.to("blood-donors").emit("blood-request-taken", {
+          requestId: requestId,
+          message: "Blood request was already accepted by another donor",
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        console.error("Error handling blood request acceptance:", error);
+      }
+    });
+
+    // ✅ NEW: Update donor status (available, busy, offline)
+    socket.on("update-donor-status", async (data) => {
+      try {
+        const { userId, newStatus } = data;
+
+        if (newStatus === "available") {
+          socket.join("blood-donors");
+          console.log(`💚 Donor ${userId} is now AVAILABLE`);
+        } else {
+          socket.leave("blood-donors");
+          console.log(`⚠️ Donor ${userId} status changed to ${newStatus}`);
+        }
+
+        // Notify the donor
+        socket.emit("status-updated", {
+          status: newStatus,
+          message: `You are now ${newStatus}`,
+        });
+
+        // Notify other donors
+        socket.to("blood-donors").emit("donor-status-changed", {
+          message: `Donor count: ${io.sockets.adapter.rooms.get("blood-donors")?.size || 0}`,
+        });
+      } catch (error) {
+        console.error("Error updating donor status:", error);
+      }
     });
 
     // Ambulance joins emergency room
@@ -22,26 +103,51 @@ const socketController = (io) => {
       try {
         const ambulance = await Ambulance.findById(ambulanceId);
         if (ambulance && ambulance.isApproved) {
-          socket.join("emergency-room");
           socket.ambulanceId = ambulanceId;
+          socket.join(`ambulance-${ambulanceId}`);
           connectedAmbulances.set(ambulanceId, socket.id);
 
-          // Update ambulance status to available if not already
-          if (ambulance.status !== "available") {
-            ambulance.status = "available";
-            await ambulance.save();
+          // ✅ FIXED: Only join emergency-room if status is AVAILABLE
+          // Don't change the ambulance status - keep their current status
+          if (ambulance.status === "available") {
+            socket.join("emergency-room");
+            console.log(
+              `✅ Ambulance ${ambulanceId} (${ambulance.name}) is AVAILABLE - joined emergency room for requests`,
+            );
+          } else {
+            console.log(
+              `⚠️ Ambulance ${ambulanceId} (${ambulance.name}) status: ${ambulance.status} - NOT receiving requests`,
+            );
           }
 
-          console.log(
-            `🚑 Ambulance ${ambulanceId} (${ambulance.name}) joined emergency room`
-          );
+          // Get count of ambulances in emergency room (only available ones)
+          const emergencyRoomSockets =
+            io.sockets.adapter.rooms.get("emergency-room");
+          const ambulanceCount = emergencyRoomSockets
+            ? emergencyRoomSockets.size
+            : 0;
 
           // Notify ambulance of successful connection
           socket.emit("ambulance-connected", {
             message: "Connected to emergency system",
-            status: "available",
+            status: ambulance.status,
+            canReceiveRequests: ambulance.status === "available",
+            ambulancesInRoom: ambulanceCount,
           });
+
+          // Broadcast ambulance status if available
+          if (ambulance.status === "available") {
+            socket.to("emergency-room").emit("ambulance-online", {
+              ambulanceId,
+              ambulanceName: ambulance.name,
+              status: ambulance.status,
+              totalAmbulances: ambulanceCount,
+            });
+          }
         } else {
+          console.warn(
+            `⚠️ Ambulance ${ambulanceId} rejected: ${!ambulance ? "not found" : "not approved"}`,
+          );
           socket.emit("connection-error", {
             message: "Ambulance not approved or not found",
           });
@@ -111,11 +217,19 @@ const socketController = (io) => {
     socket.on("accept-emergency", async (data) => {
       try {
         const { emergencyId, ambulanceId } = data;
-        const emergency = activeEmergencies.get(emergencyId);
 
+        // Update emergency in database
+        const emergency = await Emergency.findById(emergencyId);
         if (!emergency) {
           socket.emit("accept-error", {
             message: "Emergency no longer available",
+          });
+          return;
+        }
+
+        if (emergency.status !== "pending") {
+          socket.emit("accept-error", {
+            message: "Emergency already assigned",
           });
           return;
         }
@@ -126,14 +240,22 @@ const socketController = (io) => {
           return;
         }
 
+        // Update emergency
+        emergency.status = "assigned";
+        emergency.assignedAmbulance = ambulanceId;
+        emergency.acceptedAt = new Date();
+        await emergency.save();
+
         // Update ambulance status
         ambulance.status = "onDuty";
+        ambulance.assignedUser = emergency.userId;
         await ambulance.save();
 
-        // Remove emergency from active list
+        // Remove emergency from active list (if using in-memory)
         activeEmergencies.delete(emergencyId);
 
-        // Notify all other ambulances that this emergency is taken
+        // 🔴 CRITICAL: Notify all OTHER ambulances that this emergency is TAKEN
+        // They should remove it from their list immediately
         socket.to("emergency-room").emit("emergency-taken", {
           emergencyId,
           ambulanceId,
@@ -142,31 +264,28 @@ const socketController = (io) => {
         });
 
         // Notify the user who requested
-        const userSocketId = connectedUsers.get(emergency.userId);
-        if (userSocketId) {
-          io.to(userSocketId).emit("emergency-accepted", {
-            emergencyId,
-            ambulanceId: ambulance._id,
-            ambulanceName: ambulance.name,
-            ambulancePhone: ambulance.phone,
-            driverName: ambulance.driverName,
-            estimatedTime: "5-10 minutes", // You can calculate this based on distance
-            message: "Ambulance is on the way to your location!",
-          });
-        }
+        io.to(`user-${emergency.userId}`).emit("emergency-accepted", {
+          emergencyId,
+          ambulanceId: ambulance._id,
+          ambulanceName: ambulance.name,
+          ambulancePhone: ambulance.phone,
+          driverName: ambulance.driverName,
+          estimatedTime: "5-10 minutes",
+          message: "Ambulance is on the way to your location!",
+        });
 
         // Confirm to accepting ambulance
         socket.emit("emergency-accepted-confirm", {
           emergencyId,
           userLocation: emergency.location,
           userCoordinates: emergency.coordinates,
-          userName: emergency.userName,
-          userPhone: emergency.userPhone,
+          userName: emergency.userId.name || "User",
+          userPhone: emergency.userId.phone || "N/A",
           message: "Emergency accepted! Please proceed to the location.",
         });
 
         console.log(
-          `✅ Ambulance ${ambulanceId} accepted emergency ${emergencyId}`
+          `✅ Ambulance ${ambulanceId} accepted emergency ${emergencyId}`,
         );
       } catch (error) {
         console.error("Error accepting emergency:", error);
@@ -207,6 +326,12 @@ const socketController = (io) => {
           ambulance.status = "available";
           await ambulance.save();
 
+          // ✅ FIXED: Join emergency room when status changes to available
+          socket.join("emergency-room");
+          console.log(
+            `✅ Ambulance ${ambulanceId} is now AVAILABLE - joined emergency room`,
+          );
+
           socket.emit("emergency-completed", {
             message: "Emergency completed successfully",
           });
@@ -215,6 +340,55 @@ const socketController = (io) => {
         }
       } catch (error) {
         console.error("Error completing emergency:", error);
+      }
+    });
+
+    // ✅ NEW: Handle ambulance status updates
+    socket.on("update-ambulance-status", async (data) => {
+      try {
+        const { ambulanceId, newStatus } = data;
+        const ambulance = await Ambulance.findById(ambulanceId);
+
+        if (ambulance) {
+          const oldStatus = ambulance.status;
+          ambulance.status = newStatus;
+          await ambulance.save();
+
+          console.log(
+            `🔄 Ambulance ${ambulanceId} status changed: ${oldStatus} → ${newStatus}`,
+          );
+
+          // ✅ FIXED: Manage emergency-room room membership based on status
+          if (newStatus === "available") {
+            socket.join("emergency-room");
+            console.log(
+              `✅ Ambulance ${ambulanceId} status is now AVAILABLE - joined emergency room`,
+            );
+          } else {
+            socket.leave("emergency-room");
+            console.log(
+              `⛔ Ambulance ${ambulanceId} status is now ${newStatus} - left emergency room`,
+            );
+          }
+
+          // Broadcast status change to all connected clients
+          io.emit("ambulance-status-changed", {
+            ambulanceId,
+            oldStatus,
+            newStatus,
+            ambulanceName: ambulance.name,
+          });
+
+          socket.emit("status-updated", {
+            message: `Status updated to ${newStatus}`,
+            status: newStatus,
+          });
+        }
+      } catch (error) {
+        console.error("Error updating ambulance status:", error);
+        socket.emit("status-update-error", {
+          message: "Failed to update ambulance status",
+        });
       }
     });
 
@@ -233,15 +407,25 @@ const socketController = (io) => {
 
         try {
           const ambulance = await Ambulance.findById(socket.ambulanceId);
-          if (ambulance && ambulance.status === "available") {
-            ambulance.status = "offline";
-            await ambulance.save();
-            console.log(`🚑 Ambulance ${socket.ambulanceId} set to offline`);
+          if (ambulance) {
+            // ✅ FIXED: Only set to offline if currently available
+            // Don't change status if already onDuty (handling an emergency)
+            if (ambulance.status === "available") {
+              ambulance.status = "offline";
+              await ambulance.save();
+              console.log(
+                `🚑 Ambulance ${socket.ambulanceId} set to OFFLINE (was available)`,
+              );
+            } else {
+              console.log(
+                `ℹ️ Ambulance ${socket.ambulanceId} disconnected but status remains ${ambulance.status}`,
+              );
+            }
           }
         } catch (error) {
           console.error(
             "Error updating ambulance status on disconnect:",
-            error
+            error,
           );
         }
       }

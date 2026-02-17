@@ -17,6 +17,9 @@ exports.createBloodRequest = async (req, res) => {
     }
 
     // Create the blood request
+    // ✅ SECURITY: Always use req.user.id from JWT token as recipient
+    // NEVER accept recipient ID from frontend as it can be spoofed
+    // The frontend validates session to prevent multi-tab issues
     const bloodRequest = await BloodRequest.create({
       recipient: req.user.id, // Logged-in user is the recipient
       bloodType,
@@ -30,13 +33,24 @@ exports.createBloodRequest = async (req, res) => {
 
     // Populate for response
     const populatedRequest = await BloodRequest.findById(
-      bloodRequest._id
+      bloodRequest._id,
     ).populate("recipient", "name email phone");
 
     // WebSocket broadcast for real-time updates
     const io = req.app.get("io");
-    io.emit("newBloodRequest", {
+
+    // ✅ BROADCAST: Send to all donors in blood-donors room
+    io.to("blood-donors").emit("new-blood-request", {
       message: "🆕 New blood request created",
+      request: populatedRequest,
+      bloodType: bloodType,
+      urgency: urgency,
+      timestamp: new Date(),
+    });
+
+    // Also broadcast to public updates
+    io.emit("blood-request-update", {
+      action: "new",
       request: populatedRequest,
     });
 
@@ -100,6 +114,11 @@ exports.acceptBloodRequest = async (req, res) => {
     const donorId = req.user.id;
 
     console.log(`💖 Donor ${donorId} accepting request ${id}`);
+    console.log(`ℹ️ Donor user object:`, {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+    });
 
     // Find the request
     const request = await BloodRequest.findById(id)
@@ -107,11 +126,22 @@ exports.acceptBloodRequest = async (req, res) => {
       .populate("donor", "name email phone");
 
     if (!request) {
+      console.error(`❌ Request ${id} not found`);
       return res.status(404).json({ message: "Blood request not found" });
     }
 
+    console.log(`📋 Request found:`, {
+      id: request._id,
+      status: request.status,
+      recipient: request.recipient._id.toString(),
+      donorId: donorId,
+    });
+
     // ✅ Authorization: Cannot accept your own request
     if (request.recipient._id.toString() === donorId) {
+      console.warn(
+        `⚠️ User ${donorId} tried to accept their own request ${id}`,
+      );
       return res.status(403).json({
         message: "You cannot accept your own blood request",
       });
@@ -119,6 +149,9 @@ exports.acceptBloodRequest = async (req, res) => {
 
     // ✅ Authorization: Only pending requests can be accepted
     if (request.status !== "pending") {
+      console.warn(
+        `⚠️ Request ${id} is not pending (status: ${request.status})`,
+      );
       return res.status(400).json({
         message: "This request is no longer available",
       });
@@ -127,13 +160,20 @@ exports.acceptBloodRequest = async (req, res) => {
     // Find donor details
     const donor = await User.findById(donorId);
     if (!donor) {
+      console.error(`❌ Donor ${donorId} not found in User collection`);
       return res.status(404).json({ message: "Donor not found" });
     }
+
+    console.log(`✅ Donor found:`, donor.email);
 
     // Update request status and assign donor
     request.status = "matched";
     request.donor = donorId;
     await request.save();
+
+    console.log(
+      `✅ Request ${id} status updated to "matched" with donor ${donorId}`,
+    );
 
     // ✅ Create notification for the recipient
     const notificationMessage = `🎉 Your blood request for ${
@@ -153,28 +193,35 @@ exports.acceptBloodRequest = async (req, res) => {
 
     console.log(
       "✅ Notification created for recipient:",
-      request.recipient._id
+      request.recipient._id,
     );
 
     // WebSocket notifications
     const io = req.app.get("io");
 
-    // Notify the recipient in real-time
-    io.emit(`user:${request.recipient._id}`, {
+    // ✅ TARGETED: Notify the recipient in real-time via their user room
+    io.to(`user-${request.recipient._id}`).emit("blood-request-accepted", {
       type: "NEW_NOTIFICATION",
       notification: notification,
+      requestId: request._id,
+      donorName: donor.name,
+      bloodType: request.bloodType,
     });
 
-    // Broadcast request update to all users
-    io.emit("bloodRequestAccepted", {
+    // ✅ BROADCAST: Remove request from all donors' list
+    io.to("blood-donors").emit("blood-request-taken", {
       requestId: request._id,
-      donor: donor,
-      recipient: request.recipient,
+      message: `Blood request for ${request.bloodType} ${request.units} unit(s) was already matched`,
+      donor: donor.name,
+    });
+
+    // Broadcast request update to all connected users
+    io.emit("blood-request-update", {
+      action: "matched",
+      requestId: request._id,
+      donor: donor.name,
       bloodRequest: request,
     });
-
-    // Remove from public pending requests
-    io.emit("bloodRequestRemoved", { requestId: request._id });
 
     res.status(200).json({
       success: true,
@@ -236,7 +283,16 @@ exports.updateRequest = async (req, res) => {
 
     // WebSocket update
     const io = req.app.get("io");
-    io.emit("bloodRequestUpdated", {
+
+    // Broadcast to all donors about the updated request
+    io.to("blood-donors").emit("blood-request-updated", {
+      requestId: id,
+      bloodRequest: updatedRequest,
+      action: "updated",
+    });
+
+    // Notify recipient about their own update
+    io.to(`user-${request.recipient._id}`).emit("blood-request-updated", {
       requestId: id,
       bloodRequest: updatedRequest,
     });
@@ -284,7 +340,18 @@ exports.deleteRequest = async (req, res) => {
 
     // WebSocket update
     const io = req.app.get("io");
-    io.emit("bloodRequestDeleted", { requestId: id });
+
+    // Remove from donors' view
+    io.to("blood-donors").emit("blood-request-deleted", {
+      requestId: id,
+      message: "Blood request was cancelled",
+    });
+
+    // Broadcast global update
+    io.emit("blood-request-update", {
+      action: "deleted",
+      requestId: id,
+    });
 
     res.status(200).json({
       message: "🗑️ Blood request deleted successfully",
@@ -354,6 +421,31 @@ exports.completeBloodRequest = async (req, res) => {
         relatedRequest: request._id,
       });
     }
+
+    // ✅ Socket notifications
+    const io = req.app.get("io");
+
+    // Notify both parties via their user rooms
+    io.to(`user-${request.recipient._id}`).emit("blood-request-completed", {
+      requestId: request._id,
+      message: completedMessage,
+      bloodType: request.bloodType,
+    });
+
+    if (request.donor) {
+      io.to(`user-${request.donor._id}`).emit("blood-request-completed", {
+        requestId: request._id,
+        message: completedMessage,
+        bloodType: request.bloodType,
+      });
+    }
+
+    // Broadcast completion to all
+    io.emit("blood-request-update", {
+      action: "completed",
+      requestId: request._id,
+      bloodType: request.bloodType,
+    });
 
     res.status(200).json({
       message: "✅ Blood request marked as completed",

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import socketService from "../utils/socketService";
 
 const BloodDonation = ({ user }) => {
   const [bloodRequests, setBloodRequests] = useState([]);
@@ -28,28 +29,80 @@ const BloodDonation = ({ user }) => {
   });
   const navigate = useNavigate();
 
-  // ✅ Get authentication headers with token
-  const getAuthHeaders = () => {
+  // ✅ Handle auth errors
+  const handleAuthError = useCallback(() => {
+    alert("Session expired. Please login again.");
+    localStorage.removeItem("token");
+    navigate("/login");
+  }, [navigate]);
+
+  // ✅ Validate user session matches token (prevents multi-tab issues)
+  const validateUserSession = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      console.log("❌ No token found in localStorage");
-      return {};
+      console.error("❌ No token in localStorage");
+      return false;
     }
 
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-  };
+    try {
+      // Verify the token by fetching current user profile
+      const response = await axios.get("/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const tokenUser = response.data.user;
+      
+      console.log("🔍 Session validation:", {
+        componentUser: { id: user?.id, name: user?.name, email: user?.email },
+        tokenUser: { id: tokenUser?.id, name: tokenUser?.name, email: tokenUser?.email },
+        match: user?.id === tokenUser?.id
+      });
+      
+      // Check if the user state matches the token user
+      if (user && tokenUser && user.id !== tokenUser.id) {
+        console.error("⚠️ User session mismatch detected!", {
+          componentUserId: user.id,
+          componentUserName: user.name,
+          tokenUserId: tokenUser.id,
+          tokenUserName: tokenUser.name,
+        });
+        
+        alert(
+          `⚠️ ACCOUNT MISMATCH DETECTED!\n\n` +
+          `This tab shows: "${user.name}" (${user.email})\n` +
+          `But logged in as: "${tokenUser.name}" (${tokenUser.email})\n\n` +
+          `This happens when you log in with a different account in another tab.\n\n` +
+          `➡️ This page will now refresh to sync your session.`
+        );
+        
+        // Force reload to sync with the actual logged-in user
+        window.location.reload();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Session validation error:", error);
+      if (error.response?.status === 401) {
+        console.warn("⚠️ Token expired or invalid");
+        handleAuthError();
+      }
+      return false;
+    }
+  }, [user, handleAuthError]);
 
   // ✅ API call helper
   const apiCall = async (method, endpoint, data = null) => {
     const token = localStorage.getItem("token");
-    
+
     // Allow public endpoints without token
     const publicEndpoints = ["/requests", "/donors", "/bloodbanks/nearby"];
-    const isPublicEndpoint = publicEndpoints.some(ep => endpoint.includes(ep));
-    
+    const isPublicEndpoint = publicEndpoints.some((ep) =>
+      endpoint.includes(ep),
+    );
+
     if (!token && !isPublicEndpoint) {
       throw new Error("No authentication token found");
     }
@@ -73,36 +126,181 @@ const BloodDonation = ({ user }) => {
     } catch (error) {
       console.error(
         `API Error (${method} ${endpoint}):`,
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw error;
     }
   };
 
+  // ✅ NEW: Session validation on mount and tab focus
   useEffect(() => {
-    if (activeTab === "requests") fetchBloodRequests();
-    if (activeTab === "donors") fetchDonors();
-    if (activeTab === "bloodbanks") fetchBloodBanks();
-  }, [activeTab]);
+    if (!user) return;
 
+    // Validate session when component mounts
+    validateUserSession();
+
+    // Validate session when tab becomes visible (prevents multi-tab issues)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && user) {
+        console.log("🔍 Tab became visible, validating session...");
+        validateUserSession();
+      }
+    };
+
+    // ⚠️ CRITICAL: Detect when localStorage changes in another tab
+    // This happens when a user logs in/out in a different tab
+    const handleStorageChange = (e) => {
+      // Check if the token changed
+      if (e.key === "token") {
+        const newToken = e.newValue;
+        const oldToken = e.oldValue;
+
+        console.warn("⚠️ Token changed in another tab!", {
+          hadToken: !!oldToken,
+          hasToken: !!newToken,
+          currentUser: user?.email,
+        });
+
+        if (!newToken && oldToken) {
+          // User logged out in another tab
+          alert(
+            "🔴 You have been logged out in another tab.\n\n" +
+            "This page will now redirect to the login page."
+          );
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        } else if (newToken && newToken !== oldToken) {
+          // Token changed - different user logged in another tab
+          alert(
+            "⚠️ ACCOUNT SWITCHED IN ANOTHER TAB!\n\n" +
+            "A different user has logged in on another tab.\n" +
+            "This page will refresh to sync your session.\n\n" +
+            "Current tab: " + (user?.name || "Unknown") + "\n" +
+            "Please check which account you're using."
+          );
+          // Force page reload to sync with new token
+          window.location.reload();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [user, validateUserSession]);
+
+  // ✅ NEW: Socket initialization for real-time blood donation updates
   useEffect(() => {
-    calculateStats();
-  }, [bloodRequests, donors]);
+    if (!user || !user.id) {
+      console.log("User not logged in, skipping socket setup");
+      return;
+    }
 
-  const calculateStats = () => {
+    console.log("🔌 Setting up socket listeners for blood donation");
+
+    // Initialize socket connection
+    socketService.connect(user.id);
+
+    // Donor joins blood donation network if they are a donor
+    if (user.role === "donor") {
+      socketService.joinBloodDonors(user.id);
+      console.log("💉 Donor joined blood donation network");
+    }
+
+    // ✅ Listen for new blood requests
+    socketService.onNewBloodRequest((data) => {
+      console.log("🆕 New blood request received:", data);
+      setBloodRequests((prev) => [data.request, ...prev]);
+      const message = `🩸 New ${data.bloodType} blood request - ${data.urgency} urgency`;
+      alert(message);
+    });
+
+    // ✅ Listen for request acceptance
+    socketService.onBloodRequestAccepted((data) => {
+      console.log("✅ Blood request accepted:", data);
+      setBloodRequests((prev) =>
+        prev.map((req) =>
+          req._id === data.requestId
+            ? { ...req, status: "matched", donor: data.donorName }
+            : req,
+        ),
+      );
+    });
+
+    // ✅ Listen for request completion
+    socketService.onBloodRequestCompleted((data) => {
+      console.log("✨ Blood request completed:", data);
+      setBloodRequests((prev) =>
+        prev.map((req) =>
+          req._id === data.requestId ? { ...req, status: "completed" } : req,
+        ),
+      );
+    });
+
+    // ✅ Listen for request taken by another donor
+    socketService.onBloodRequestTaken((data) => {
+      console.log("⚠️ Blood request taken:", data);
+      setBloodRequests((prev) =>
+        prev.filter((req) => req._id !== data.requestId),
+      );
+      alert(`⚠️ ${data.message}. A donor has already accepted this request.`);
+    });
+
+    // ✅ Listen for request deletion
+    socketService.onBloodRequestDeleted((data) => {
+      console.log("🗑️ Blood request deleted:", data);
+      setBloodRequests((prev) =>
+        prev.filter((req) => req._id !== data.requestId),
+      );
+    });
+
+    // ✅ Listen for request updates
+    socketService.onBloodRequestUpdated((data) => {
+      console.log("📝 Blood request updated:", data);
+      setBloodRequests((prev) =>
+        prev.map((req) =>
+          req._id === data.requestId ? data.bloodRequest : req,
+        ),
+      );
+    });
+
+    // ✅ Listen for donor status changes (for donor count updates)
+    socketService.onDonorStatusChanged((data) => {
+      console.log("💚 Donor status changed:", data);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log("Cleaning up socket listeners for blood donation");
+      socketService.removeListener("new-blood-request");
+      socketService.removeListener("blood-request-accepted");
+      socketService.removeListener("blood-request-completed");
+      socketService.removeListener("blood-request-taken");
+      socketService.removeListener("blood-request-deleted");
+      socketService.removeListener("blood-request-updated");
+      socketService.removeListener("donor-status-changed");
+    };
+  }, [user, validateUserSession]);
+
+  const calculateStats = useCallback(() => {
     setStats({
       totalRequests: bloodRequests.length,
       activeRequests: bloodRequests.filter(
-        (req) => req.status === "pending" || req.status === "matched"
+        (req) => req.status === "pending" || req.status === "matched",
       ).length,
       completedRequests: bloodRequests.filter(
-        (req) => req.status === "completed"
+        (req) => req.status === "completed",
       ).length,
       availableDonors: donors.length,
     });
-  };
+  }, [bloodRequests, donors]);
 
-  const fetchBloodRequests = async () => {
+  const fetchBloodRequests = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiCall("get", "/requests");
@@ -112,9 +310,9 @@ const BloodDonation = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchDonors = async () => {
+  const fetchDonors = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiCall("get", "/donors");
@@ -124,9 +322,9 @@ const BloodDonation = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchBloodBanks = async () => {
+  const fetchBloodBanks = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiCall("get", "/bloodbanks/nearby");
@@ -136,7 +334,19 @@ const BloodDonation = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // ✅ Fetch data based on active tab
+  useEffect(() => {
+    if (activeTab === "requests") fetchBloodRequests();
+    if (activeTab === "donors") fetchDonors();
+    if (activeTab === "bloodbanks") fetchBloodBanks();
+  }, [activeTab, fetchBloodRequests, fetchDonors, fetchBloodBanks]);
+
+  // ✅ Calculate stats when data changes
+  useEffect(() => {
+    calculateStats();
+  }, [calculateStats]);
 
   // ✅ NEW: Call Donor Function
   const handleCallDonor = (donorName, phoneNumber) => {
@@ -146,20 +356,20 @@ const BloodDonation = ({ user }) => {
     }
 
     // Clean the phone number (remove spaces, dashes, etc.)
-    const cleanNumber = phoneNumber.replace(/\D/g, '');
-    
+    const cleanNumber = phoneNumber.replace(/\D/g, "");
+
     // Validate phone number
     if (cleanNumber.length < 10) {
-      alert('Invalid phone number format');
+      alert("Invalid phone number format");
       return;
     }
 
     // Ask for confirmation before calling
     const confirmCall = window.confirm(`Call ${donorName} at ${phoneNumber}?`);
-    
+
     if (confirmCall) {
       // Open phone dialer
-      window.open(`tel:${cleanNumber}`, '_self');
+      window.open(`tel:${cleanNumber}`, "_self");
     }
   };
 
@@ -170,15 +380,15 @@ const BloodDonation = ({ user }) => {
       return;
     }
 
-    const cleanNumber = phoneNumber.replace(/\D/g, '');
-    
+    const cleanNumber = phoneNumber.replace(/\D/g, "");
+
     if (cleanNumber.length < 10) {
-      alert('Invalid phone number format');
+      alert("Invalid phone number format");
       return;
     }
 
     // Open SMS app with pre-filled number
-    window.open(`sms:${cleanNumber}`, '_self');
+    window.open(`sms:${cleanNumber}`, "_self");
   };
 
   // ✅ FIXED: Create Blood Request
@@ -188,6 +398,13 @@ const BloodDonation = ({ user }) => {
     if (!user) {
       alert("Please login to create a blood request");
       navigate("/login");
+      return;
+    }
+
+    // ✅ SECURITY: Validate user session before creating request
+    // This prevents multi-tab issues where different users are logged in
+    const isValidSession = await validateUserSession();
+    if (!isValidSession) {
       return;
     }
 
@@ -204,11 +421,43 @@ const BloodDonation = ({ user }) => {
 
     setLoading(true);
     try {
-      console.log("Creating blood request with data:", newRequest);
+      console.log("=== Creating Blood Request ===");
+      console.log("📋 Form data:", newRequest);
+      console.log("👤 Component user state:", {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      });
+      
+      const token = localStorage.getItem("token");
+      console.log("🔑 Token present:", !!token);
       
       const response = await apiCall("post", "/request", newRequest);
-      console.log("Response:", response);
-      
+      console.log("✅ Response:", response);
+
+      // Verify the recipient matches the expected user
+      if (response.request && response.request.recipient) {
+        const recipientId = response.request.recipient._id || response.request.recipient;
+        console.log("🔍 Recipient verification:", {
+          expectedUserId: user.id,
+          actualRecipientId: recipientId,
+          match: String(user.id) === String(recipientId)
+        });
+        
+        if (String(user.id) !== String(recipientId)) {
+          console.error("❌ RECIPIENT MISMATCH!", {
+            expected: user.id,
+            actual: recipientId
+          });
+          alert(
+            "⚠️ WARNING: Recipient Mismatch!\n\n" +
+            "The blood request was created, but the recipient doesn't match your account.\n" +
+            "This suggests you may have logged in with a different account in another tab.\n\n" +
+            "Please refresh this page to ensure you're using the correct account."
+          );
+        }
+      }
+
       alert("✅ Blood request created successfully!");
 
       // Reset form
@@ -235,7 +484,7 @@ const BloodDonation = ({ user }) => {
         handleAuthError();
       } else {
         alert(`❌ ${errorMessage}`);
-        
+
         // Show more detailed error info for debugging
         if (error.response?.data) {
           console.error("Detailed error:", error.response.data);
@@ -248,12 +497,12 @@ const BloodDonation = ({ user }) => {
 
   // ✅ Helper to update nested location state
   const updateLocationField = (field, value) => {
-    setNewRequest(prev => ({
+    setNewRequest((prev) => ({
       ...prev,
       location: {
         ...prev.location,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
@@ -263,10 +512,41 @@ const BloodDonation = ({ user }) => {
       return;
     }
 
+    // ✅ SECURITY: Validate user session before accepting request
+    const isValidSession = await validateUserSession();
+    if (!isValidSession) {
+      return;
+    }
+
+    // Find the request to check if user is the recipient
+    const request = bloodRequests.find((req) => req._id === requestId);
+
+    if (!request) {
+      alert("❌ Request not found");
+      return;
+    }
+
+    // ✅ FIX: Prevent user from accepting their own request (with proper ID comparison)
+    const recipientId = request.recipient?._id || request.recipient;
+    const isOwnRequest =
+      user.id && recipientId && user.id.toString() === recipientId.toString();
+
+    if (isOwnRequest) {
+      alert(
+        "❌ You cannot accept your own blood request. You must create it as a recipient to receive blood, or donate blood as a donor for others' requests.",
+      );
+      return;
+    }
+
     if (!confirm("Are you sure you want to accept this blood request?")) return;
 
     try {
+      console.log("Accepting request as user:", user.id);
       await apiCall("put", `/requests/${requestId}/accept`, {});
+
+      // ✅ NEW: Emit socket event to notify other donors
+      socketService.acceptBloodRequest(requestId, user.id);
+
       alert("✅ Blood request accepted successfully!");
       fetchBloodRequests();
     } catch (error) {
@@ -280,8 +560,19 @@ const BloodDonation = ({ user }) => {
   const completeRequest = async (requestId) => {
     if (!confirm("Mark this request as completed?")) return;
 
+    // ✅ SECURITY: Validate user session before completing request
+    const isValidSession = await validateUserSession();
+    if (!isValidSession) {
+      return;
+    }
+
     try {
+      console.log("Completing request as user:", user.id);
       await apiCall("put", `/requests/${requestId}/complete`, {});
+
+      // ✅ NEW: Emit socket event to notify both parties
+      socketService.updateDonorStatus(user.id, "available");
+
       alert("✅ Request marked as completed!");
       fetchBloodRequests();
     } catch (error) {
@@ -297,7 +588,14 @@ const BloodDonation = ({ user }) => {
 
     if (!editingRequest) return;
 
+    // ✅ SECURITY: Validate user session before updating request
+    const isValidSession = await validateUserSession();
+    if (!isValidSession) {
+      return;
+    }
+
     try {
+      console.log("Updating request as user:", user.id);
       const { _id, ...updates } = editingRequest;
       await apiCall("put", `/requests/${_id}`, updates);
       alert("✅ Request updated successfully!");
@@ -314,7 +612,14 @@ const BloodDonation = ({ user }) => {
   const deleteRequest = async (requestId) => {
     if (!confirm("Are you sure you want to delete this blood request?")) return;
 
+    // ✅ SECURITY: Validate user session before deleting request
+    const isValidSession = await validateUserSession();
+    if (!isValidSession) {
+      return;
+    }
+
     try {
+      console.log("Deleting request as user:", user.id);
       await apiCall("delete", `/requests/${requestId}`);
       alert("🗑️ Request deleted successfully!");
       fetchBloodRequests();
@@ -327,6 +632,31 @@ const BloodDonation = ({ user }) => {
   };
 
   const handleEditRequest = (request) => {
+    // ✅ AUTHORIZATION: Only allow recipient to edit
+    const currentUserId = user?.id;
+    const recipientId = request.recipient?._id || request.recipient;
+    
+    // Convert both to strings for proper comparison
+    const userIdStr = currentUserId ? String(currentUserId) : null;
+    const recipientIdStr = recipientId ? String(recipientId) : null;
+    
+    console.log('🔍 Edit Request Authorization Check:', {
+      currentUserId: userIdStr,
+      recipientId: recipientIdStr,
+      isMatch: userIdStr === recipientIdStr,
+      requestStatus: request.status
+    });
+    
+    if (!userIdStr || userIdStr !== recipientIdStr) {
+      alert('❌ Unauthorized: You can only edit your own blood requests');
+      return;
+    }
+    
+    if (request.status !== 'pending') {
+      alert('❌ Cannot edit: Only pending requests can be edited');
+      return;
+    }
+    
     setEditingRequest({
       _id: request._id,
       bloodType: request.bloodType,
@@ -339,13 +669,6 @@ const BloodDonation = ({ user }) => {
 
   const cancelEdit = () => {
     setEditingRequest(null);
-  };
-
-  const handleAuthError = () => {
-    alert("Session expired. Please login again.");
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
   };
 
   const getUrgencyColor = (urgency) => {
@@ -381,50 +704,107 @@ const BloodDonation = ({ user }) => {
   // Render appropriate buttons based on authorization
   const renderRequestActions = (request) => {
     const currentUserId = user?.id;
-    const isRecipient = currentUserId === request.recipient?._id;
-    const isDonor = currentUserId === request.donor?._id;
+
+    // ✅ FIXED: Better comparison that handles string vs ObjectId
+    const recipientId = request.recipient?._id || request.recipient;
+    const donorId = request.donor?._id || request.donor;
+
+    // Convert to strings for safe comparison
+    const userIdStr = currentUserId ? String(currentUserId) : null;
+    const recipientIdStr = recipientId ? String(recipientId) : null;
+    const donorIdStr = donorId ? String(donorId) : null;
+
+    const isRecipient = userIdStr && recipientIdStr && userIdStr === recipientIdStr;
+    const isDonor = userIdStr && donorIdStr && userIdStr === donorIdStr;
+    const isLoggedIn = !!currentUserId;
+    
+    // Debug logging (can be removed in production)
+    if (request._id) {
+      console.log('🔍 Authorization Check for Request:', {
+        requestId: request._id,
+        currentUserId: userIdStr,
+        recipientId: recipientIdStr,
+        isRecipient,
+        status: request.status
+      });
+    }
 
     return (
       <div className="flex space-x-2 flex-wrap gap-2">
-        {/* Edit/Delete - Only for recipient when pending */}
+        {/* ========================================
+            RECIPIENT ONLY: Edit & Delete when pending
+            ======================================== */}
         {isRecipient && request.status === "pending" && (
           <>
+            <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
+              👤 You're requesting
+            </div>
             <button
               onClick={() => handleEditRequest(request)}
               className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+              title="Edit this blood request"
             >
               ✏️ Edit
             </button>
             <button
               onClick={() => deleteRequest(request._id)}
               className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+              title="Delete this blood request"
             >
               🗑️ Delete
             </button>
           </>
         )}
 
-        {/* Accept - For any logged-in user except recipient when pending */}
-        {user && !isRecipient && request.status === "pending" && (
-          <button
-            onClick={() => acceptRequest(request._id)}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
-          >
-            ✅ Accept Request
-          </button>
+        {/* ========================================
+            DONORS ONLY: Accept when pending
+            (Available to any logged-in user who is NOT the recipient)
+            ======================================== */}
+        {isLoggedIn && !isRecipient && request.status === "pending" && (
+          <>
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-semibold">
+              💉 You can donate
+            </div>
+            <button
+              onClick={() => acceptRequest(request._id)}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+              title="Accept this blood request and become the donor"
+            >
+              ✅ Accept Request
+            </button>
+          </>
         )}
 
-        {/* Complete - For both recipient and donor when matched */}
+        {/* ========================================
+            NOT LOGGED IN: Show login prompt for pending requests
+            ======================================== */}
+        {!isLoggedIn && request.status === "pending" && (
+          <div className="text-sm font-semibold text-gray-600 px-3 py-2 bg-gray-100 rounded">
+            🔐 Login to accept this request
+          </div>
+        )}
+
+        {/* ========================================
+            COMPLETION: Both recipient and donor can mark as complete
+            ======================================== */}
         {(isRecipient || isDonor) && request.status === "matched" && (
-          <button
-            onClick={() => completeRequest(request._id)}
-            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
-          >
-            🎯 Mark Complete
-          </button>
+          <>
+            <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+              {isRecipient ? "📝 Recipient" : isDonor ? "💉 Donor" : ""}
+            </div>
+            <button
+              onClick={() => completeRequest(request._id)}
+              className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+              title="Mark this blood request as completed"
+            >
+              🎯 Mark Complete
+            </button>
+          </>
         )}
 
-        {/* Status badges */}
+        {/* ========================================
+            STATUS BADGES
+            ======================================== */}
         {request.status === "completed" && (
           <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-semibold">
             ✅ Completed
@@ -594,6 +974,23 @@ const BloodDonation = ({ user }) => {
                         </p>
                       </div>
                     </div>
+
+                    {/* ⚠️ Multi-Account Warning */}
+                    <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                      <div className="flex items-start space-x-3">
+                        <span className="text-2xl">ℹ️</span>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-blue-900 mb-1">
+                            Creating request as: {user.name} ({user.email})
+                          </h4>
+                          <p className="text-xs text-blue-800">
+                            💡 <strong>Multi-Tab Notice:</strong> If you login with a different account in another tab, 
+                            this page will automatically detect it and refresh to prevent mismatches.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <form
                       onSubmit={createBloodRequest}
                       className="grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -605,10 +1002,12 @@ const BloodDonation = ({ user }) => {
                         </label>
                         <select
                           value={newRequest.bloodType}
-                          onChange={(e) => setNewRequest(prev => ({
-                            ...prev,
-                            bloodType: e.target.value
-                          }))}
+                          onChange={(e) =>
+                            setNewRequest((prev) => ({
+                              ...prev,
+                              bloodType: e.target.value,
+                            }))
+                          }
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                           required
                         >
@@ -634,10 +1033,12 @@ const BloodDonation = ({ user }) => {
                           min="1"
                           max="10"
                           value={newRequest.units}
-                          onChange={(e) => setNewRequest(prev => ({
-                            ...prev,
-                            units: parseInt(e.target.value) || 1
-                          }))}
+                          onChange={(e) =>
+                            setNewRequest((prev) => ({
+                              ...prev,
+                              units: parseInt(e.target.value) || 1,
+                            }))
+                          }
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                           required
                         />
@@ -650,15 +1051,21 @@ const BloodDonation = ({ user }) => {
                         </label>
                         <select
                           value={newRequest.urgency}
-                          onChange={(e) => setNewRequest(prev => ({
-                            ...prev,
-                            urgency: e.target.value
-                          }))}
+                          onChange={(e) =>
+                            setNewRequest((prev) => ({
+                              ...prev,
+                              urgency: e.target.value,
+                            }))
+                          }
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         >
                           <option value="low">Low - Can wait few days</option>
-                          <option value="medium">Medium - Need within 24 hours</option>
-                          <option value="high">High - Need within 6 hours</option>
+                          <option value="medium">
+                            Medium - Need within 24 hours
+                          </option>
+                          <option value="high">
+                            High - Need within 6 hours
+                          </option>
                           <option value="critical">Critical - Emergency</option>
                         </select>
                       </div>
@@ -671,7 +1078,9 @@ const BloodDonation = ({ user }) => {
                         <input
                           type="text"
                           value={newRequest.location.city}
-                          onChange={(e) => updateLocationField('city', e.target.value)}
+                          onChange={(e) =>
+                            updateLocationField("city", e.target.value)
+                          }
                           placeholder="Enter your city"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                           required
@@ -686,7 +1095,9 @@ const BloodDonation = ({ user }) => {
                         <input
                           type="text"
                           value={newRequest.location.hospital}
-                          onChange={(e) => updateLocationField('hospital', e.target.value)}
+                          onChange={(e) =>
+                            updateLocationField("hospital", e.target.value)
+                          }
                           placeholder="Hospital name (optional)"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         />
@@ -700,7 +1111,9 @@ const BloodDonation = ({ user }) => {
                         <input
                           type="text"
                           value={newRequest.location.address}
-                          onChange={(e) => updateLocationField('address', e.target.value)}
+                          onChange={(e) =>
+                            updateLocationField("address", e.target.value)
+                          }
                           placeholder="Full address (optional)"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         />
@@ -713,10 +1126,12 @@ const BloodDonation = ({ user }) => {
                         </label>
                         <textarea
                           value={newRequest.notes}
-                          onChange={(e) => setNewRequest(prev => ({
-                            ...prev,
-                            notes: e.target.value
-                          }))}
+                          onChange={(e) =>
+                            setNewRequest((prev) => ({
+                              ...prev,
+                              notes: e.target.value,
+                            }))
+                          }
                           placeholder="Any additional information for donors..."
                           rows="3"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -745,8 +1160,26 @@ const BloodDonation = ({ user }) => {
                 )}
 
                 {/* Edit Request Form */}
-                {user && editingRequest && (
-                  <div className="bg-gradient-to-br from-white to-yellow-50 rounded-2xl p-6 border-2 border-yellow-200 shadow-sm">
+                {user && editingRequest && (() => {
+                  // ✅ AUTHORIZATION: Double-check that the current user is the recipient
+                  const currentUserId = user?.id;
+                  const userIdStr = currentUserId ? String(currentUserId) : null;
+                  
+                  // Find the request in the list to verify ownership
+                  const originalRequest = bloodRequests.find(req => req._id === editingRequest._id);
+                  if (originalRequest) {
+                    const recipientId = originalRequest.recipient?._id || originalRequest.recipient;
+                    const recipientIdStr = recipientId ? String(recipientId) : null;
+                    
+                    if (!userIdStr || userIdStr !== recipientIdStr) {
+                      console.warn('⚠️ Unauthorized edit attempt blocked');
+                      setEditingRequest(null);
+                      return null;
+                    }
+                  }
+                  
+                  return (
+                    <div className="bg-gradient-to-br from-white to-yellow-50 rounded-2xl p-6 border-2 border-yellow-200 shadow-sm">
                     <div className="flex items-center space-x-3 mb-6">
                       <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-xl flex items-center justify-center">
                         <span className="text-white text-xl">✏️</span>
@@ -771,10 +1204,12 @@ const BloodDonation = ({ user }) => {
                         </label>
                         <select
                           value={editingRequest.bloodType}
-                          onChange={(e) => setEditingRequest(prev => ({
-                            ...prev,
-                            bloodType: e.target.value
-                          }))}
+                          onChange={(e) =>
+                            setEditingRequest((prev) => ({
+                              ...prev,
+                              bloodType: e.target.value,
+                            }))
+                          }
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                         >
                           <option value="">Select Blood Type</option>
@@ -798,10 +1233,12 @@ const BloodDonation = ({ user }) => {
                           min="1"
                           max="10"
                           value={editingRequest.units}
-                          onChange={(e) => setEditingRequest(prev => ({
-                            ...prev,
-                            units: parseInt(e.target.value) || 1
-                          }))}
+                          onChange={(e) =>
+                            setEditingRequest((prev) => ({
+                              ...prev,
+                              units: parseInt(e.target.value) || 1,
+                            }))
+                          }
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                         />
                       </div>
@@ -823,7 +1260,8 @@ const BloodDonation = ({ user }) => {
                       </div>
                     </form>
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Blood Requests List */}
                 <div className="space-y-6">
@@ -877,13 +1315,17 @@ const BloodDonation = ({ user }) => {
                                 {request.bloodType} Blood Needed
                               </h3>
                               <div className="flex items-center space-x-4">
-                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getUrgencyColor(request.urgency)}`}>
+                                <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${getUrgencyColor(request.urgency)}`}
+                                >
                                   {request.urgency.toUpperCase()}
                                 </span>
                                 <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
                                   {request.units} Unit(s)
                                 </span>
-                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(request.status)}`}>
+                                <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(request.status)}`}
+                                >
                                   {request.status.toUpperCase()}
                                 </span>
                               </div>
@@ -893,25 +1335,34 @@ const BloodDonation = ({ user }) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                               <p className="text-gray-600 mb-2">
-                                <span className="font-semibold">📍 Location:</span>{" "}
+                                <span className="font-semibold">
+                                  📍 Location:
+                                </span>{" "}
                                 {request.location?.city}
-                                {request.location?.hospital && ` • ${request.location.hospital}`}
+                                {request.location?.hospital &&
+                                  ` • ${request.location.hospital}`}
                               </p>
                               {request.location?.address && (
                                 <p className="text-gray-600">
-                                  <span className="font-semibold">🏠 Address:</span>{" "}
+                                  <span className="font-semibold">
+                                    🏠 Address:
+                                  </span>{" "}
                                   {request.location.address}
                                 </p>
                               )}
                             </div>
                             <div>
                               <p className="text-gray-600">
-                                <span className="font-semibold">👤 Requested by:</span>{" "}
+                                <span className="font-semibold">
+                                  👤 Requested by:
+                                </span>{" "}
                                 {request.recipient?.name || "Anonymous"}
                               </p>
                               {request.donor && (
                                 <p className="text-green-600">
-                                  <span className="font-semibold">✅ Donor:</span>{" "}
+                                  <span className="font-semibold">
+                                    ✅ Donor:
+                                  </span>{" "}
                                   {request.donor.name}
                                 </p>
                               )}
@@ -926,6 +1377,137 @@ const BloodDonation = ({ user }) => {
                               </p>
                             </div>
                           )}
+
+                          {/* ✅ DONOR INFORMATION CARD - Show to recipient when matched */}
+                          {(() => {
+                            const currentUserId = user?.id;
+                            const recipientId = request.recipient?._id || request.recipient;
+                            const userIdStr = currentUserId ? String(currentUserId) : null;
+                            const recipientIdStr = recipientId ? String(recipientId) : null;
+                            const isRecipient = userIdStr && recipientIdStr && userIdStr === recipientIdStr;
+
+                            // Show donor info card only to recipient when request is matched
+                            if (isRecipient && request.status === "matched" && request.donor) {
+                              return (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6 mb-4 shadow-md">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                                        <span className="text-2xl text-white">💚</span>
+                                      </div>
+                                      <div>
+                                        <h4 className="text-xl font-bold text-gray-900">
+                                          Donor Matched!
+                                        </h4>
+                                        <p className="text-sm text-gray-600">
+                                          Contact your donor to coordinate
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-semibold animate-pulse">
+                                      🎉 Matched
+                                    </div>
+                                  </div>
+
+                                  {/* Donor Details Grid */}
+                                  <div className="bg-white rounded-xl p-5 mb-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                          <span className="text-xl">👤</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500 font-medium">Donor Name</p>
+                                          <p className="text-base font-bold text-gray-900">
+                                            {request.donor.name}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {request.donor.email && (
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                            <span className="text-xl">📧</span>
+                                          </div>
+                                          <div>
+                                            <p className="text-xs text-gray-500 font-medium">Email</p>
+                                            <p className="text-base font-semibold text-gray-900 break-all">
+                                              {request.donor.email}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {request.donor.phone && (
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                            <span className="text-xl">📱</span>
+                                          </div>
+                                          <div>
+                                            <p className="text-xs text-gray-500 font-medium">Phone</p>
+                                            <p className="text-base font-bold text-gray-900">
+                                              {request.donor.phone}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                          <span className="text-xl">🩸</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500 font-medium">Blood Type</p>
+                                          <p className="text-base font-bold text-red-600">
+                                            {request.bloodType}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Contact Actions */}
+                                  <div className="flex flex-wrap gap-3">
+                                    {request.donor.phone && (
+                                      <>
+                                        <button
+                                          onClick={() => handleCallDonor(request.donor.name, request.donor.phone)}
+                                          className="flex-1 min-w-[150px] bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
+                                        >
+                                          <span className="text-xl">📞</span>
+                                          <span>Call Donor</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleSMSDonor(request.donor.name, request.donor.phone)}
+                                          className="flex-1 min-w-[150px] bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-5 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
+                                        >
+                                          <span className="text-xl">💬</span>
+                                          <span>Send SMS</span>
+                                        </button>
+                                      </>
+                                    )}
+                                    {request.donor.email && (
+                                      <button
+                                        onClick={() => window.open(`mailto:${request.donor.email}?subject=Blood Donation - ${request.bloodType}&body=Hello ${request.donor.name},%0D%0A%0D%0AThank you for accepting my blood donation request.`, '_blank')}
+                                        className="flex-1 min-w-[150px] bg-gradient-to-r from-purple-500 to-pink-600 text-white px-5 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
+                                      >
+                                        <span className="text-xl">✉️</span>
+                                        <span>Send Email</span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <p className="text-sm text-gray-700">
+                                      <span className="font-semibold text-yellow-700">💡 Tip:</span>{" "}
+                                      Please coordinate with your donor to arrange the blood donation at a nearby hospital or blood bank.
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
 
                           <div className="flex justify-between items-center">
                             <div className="text-sm text-gray-500">
@@ -1001,20 +1583,24 @@ const BloodDonation = ({ user }) => {
                             {donor.phone}
                           </p>
                         )}
-                        
+
                         {/* Contact Buttons */}
                         <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                           {donor.phone && (
                             <>
                               <button
-                                onClick={() => handleCallDonor(donor.name, donor.phone)}
+                                onClick={() =>
+                                  handleCallDonor(donor.name, donor.phone)
+                                }
                                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
                               >
                                 <span>📞</span>
                                 <span>Call Donor</span>
                               </button>
                               <button
-                                onClick={() => handleSMSDonor(donor.name, donor.phone)}
+                                onClick={() =>
+                                  handleSMSDonor(donor.name, donor.phone)
+                                }
                                 className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
                               >
                                 <span>💬</span>
@@ -1110,8 +1696,10 @@ const BloodDonation = ({ user }) => {
                               {bank.distance} away
                             </p>
                             {bank.phone && (
-                              <button 
-                                onClick={() => handleCallDonor(bank.name, bank.phone)}
+                              <button
+                                onClick={() =>
+                                  handleCallDonor(bank.name, bank.phone)
+                                }
                                 className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-lg font-semibold mt-3 hover:shadow-lg transition-all duration-300"
                               >
                                 📞 Call Blood Bank

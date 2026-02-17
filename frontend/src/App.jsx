@@ -31,12 +31,40 @@ axios.defaults.baseURL = "http://localhost:5000/api";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [hospital, setHospital] = useState(null);
-  const [ambulance, setAmbulance] = useState(null);
-  const [admin, setAdmin] = useState(null);
+  const [hospital, setHospital] = useState(() => {
+    const hospitalToken = localStorage.getItem("hospitalToken");
+    return hospitalToken
+      ? JSON.parse(localStorage.getItem("hospital") || "{}")
+      : null;
+  });
+  const [ambulance, setAmbulance] = useState(() => {
+    const ambulanceToken = localStorage.getItem("ambulanceToken");
+    return ambulanceToken
+      ? JSON.parse(localStorage.getItem("ambulance") || "{}")
+      : null;
+  });
+  const [admin, setAdmin] = useState(() => {
+    const adminToken = localStorage.getItem("adminToken");
+    return adminToken
+      ? JSON.parse(localStorage.getItem("admin") || "{}")
+      : null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await axios.get("/auth/profile");
+        setUser(response.data.user);
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        localStorage.removeItem("token");
+        delete axios.defaults.headers.common["Authorization"];
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const userToken = localStorage.getItem("token");
     const hospitalToken = localStorage.getItem("hospitalToken");
     const ambulanceToken = localStorage.getItem("ambulanceToken");
@@ -46,32 +74,72 @@ function App() {
       axios.defaults.headers.common["Authorization"] = `Bearer ${userToken}`;
       fetchUserProfile();
     } else if (hospitalToken) {
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${hospitalToken}`;
-      setHospital(JSON.parse(localStorage.getItem("hospital") || "{}"));
+      axios.defaults.headers.common["Authorization"] =
+        `Bearer ${hospitalToken}`;
+      setLoading(false);
     } else if (ambulanceToken) {
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${ambulanceToken}`;
-      setAmbulance(JSON.parse(localStorage.getItem("ambulance") || "{}"));
+      axios.defaults.headers.common["Authorization"] =
+        `Bearer ${ambulanceToken}`;
+      setLoading(false);
     } else if (adminToken) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${adminToken}`;
-      setAdmin(JSON.parse(localStorage.getItem("admin") || "{}"));
+      setLoading(false);
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await axios.get("/auth/profile");
-      setUser(response.data.user);
-    } catch (error) {
-      console.error("Failed to fetch user profile:", error);
-      localStorage.removeItem("token");
-      delete axios.defaults.headers.common["Authorization"];
-    }
-  };
+  // ⚠️ CRITICAL: Monitor localStorage changes across tabs (prevents multi-account issues)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      console.log(
+        "📦 Storage change detected:",
+        e.key,
+        e.newValue ? "changed" : "removed",
+      );
+
+      // User token changed
+      if (e.key === "token") {
+        if (!e.newValue && e.oldValue) {
+          // Logged out in another tab
+          console.warn("⚠️ User logged out in another tab");
+          setUser(null);
+          delete axios.defaults.headers.common["Authorization"];
+          window.location.href = "/login";
+        } else if (e.newValue && e.newValue !== e.oldValue) {
+          // Different user logged in
+          console.warn("⚠️ Different user logged in another tab - refreshing");
+          window.location.reload();
+        }
+      }
+
+      // Hospital token changed
+      if (e.key === "hospitalToken") {
+        if (!e.newValue && e.oldValue) {
+          setHospital(null);
+          window.location.href = "/hospital-login";
+        } else if (e.newValue && e.newValue !== e.oldValue) {
+          window.location.reload();
+        }
+      }
+
+      // Ambulance token changed
+      if (e.key === "ambulanceToken") {
+        if (!e.newValue && e.oldValue) {
+          setAmbulance(null);
+          window.location.href = "/ambulance-login";
+        } else if (e.newValue && e.newValue !== e.oldValue) {
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
 
   const login = (token, userData) => {
     localStorage.setItem("token", token);

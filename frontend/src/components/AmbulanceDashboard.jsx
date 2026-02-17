@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import socketService from "../utils/socketService";
 
 // Google Maps component using Embed API (No API key required for basic functionality)
 const EmergencyMap = ({
@@ -11,8 +11,32 @@ const EmergencyMap = ({
   onComplete,
   onStartJourney,
 }) => {
-  const [travelTime, setTravelTime] = useState("Calculating...");
-  const [distance, setDistance] = useState("Calculating...");
+  // Calculate route info based on origin and destination
+  const getRouteInfo = () => {
+    if (!origin || !destination) {
+      return { distance: "Calculating...", travelTime: "Calculating..." };
+    }
+
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = ((destination.lat - origin.lat) * Math.PI) / 180;
+    const dLon = ((destination.lng - origin.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((origin.lat * Math.PI) / 180) *
+        Math.cos((destination.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const approxDistance = R * c;
+    const approxTime = (approxDistance / 40) * 60; // Assuming 40 km/h average speed
+
+    return {
+      distance: `${approxDistance.toFixed(1)} km`,
+      travelTime: `${Math.round(approxTime)} min`,
+    };
+  };
+
+  const routeInfo = getRouteInfo();
 
   // Get Google Maps directions URL
   const getGoogleMapsUrl = () => {
@@ -31,31 +55,10 @@ const EmergencyMap = ({
     }
   };
 
-  // Calculate approximate distance and time using Haversine formula
-  useEffect(() => {
-    if (origin && destination) {
-      const R = 6371; // Earth's radius in kilometers
-      const dLat = ((destination.lat - origin.lat) * Math.PI) / 180;
-      const dLon = ((destination.lng - origin.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((origin.lat * Math.PI) / 180) *
-          Math.cos((destination.lat * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const approxDistance = R * c;
-      const approxTime = (approxDistance / 40) * 60; // Assuming 40 km/h average speed
-
-      setDistance(`${approxDistance.toFixed(1)} km`);
-      setTravelTime(`${Math.round(approxTime)} min`);
-    }
-  }, [origin, destination]);
-
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
+        <div className="bg-linear-to-r from-green-500 to-emerald-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <span className="text-3xl">🗺️</span>
@@ -103,7 +106,7 @@ const EmergencyMap = ({
                     <span className="text-green-600">📏</span>
                     <div>
                       <p className="font-semibold text-green-700">Distance</p>
-                      <p className="text-green-800">{distance}</p>
+                      <p className="text-green-800">{routeInfo.distance}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -112,7 +115,7 @@ const EmergencyMap = ({
                       <p className="font-semibold text-green-700">
                         Est. Travel Time
                       </p>
-                      <p className="text-green-800">{travelTime}</p>
+                      <p className="text-green-800">{routeInfo.travelTime}</p>
                     </div>
                   </div>
                   {emergency?.userId?.name && (
@@ -148,7 +151,7 @@ const EmergencyMap = ({
               <div className="space-y-3">
                 <button
                   onClick={openInGoogleMaps}
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
+                  className="w-full bg-linear-to-r from-blue-500 to-cyan-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
                 >
                   <span>🗺️</span>
                   <span>Open in Google Maps</span>
@@ -156,7 +159,7 @@ const EmergencyMap = ({
 
                 <button
                   onClick={onStartJourney}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
+                  className="w-full bg-linear-to-r from-green-500 to-emerald-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
                 >
                   <span>🚑</span>
                   <span>Start Journey</span>
@@ -164,7 +167,7 @@ const EmergencyMap = ({
 
                 <button
                   onClick={onComplete}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
+                  className="w-full bg-linear-to-r from-purple-500 to-pink-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
                 >
                   <span>🏁</span>
                   <span>Mark as Completed</span>
@@ -188,7 +191,7 @@ const EmergencyMap = ({
             {/* Map Container */}
             <div className="lg:col-span-3">
               <div className="bg-gray-100 rounded-2xl p-4 border-2 border-green-300 h-96 lg:h-[500px]">
-                <div className="w-full h-full bg-gradient-to-br from-blue-100 to-green-100 rounded-xl flex items-center justify-center relative">
+                <div className="w-full h-full bg-linear-to-br from-blue-100 to-green-100 rounded-xl flex items-center justify-center relative">
                   {/* Interactive Map Visualization */}
                   <div className="text-center">
                     <div className="w-20 h-20 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -243,12 +246,14 @@ const EmergencyMap = ({
               {/* Quick Stats */}
               <div className="grid grid-cols-4 gap-4 mt-4">
                 <div className="bg-blue-50 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-bold text-blue-600">{distance}</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {routeInfo.distance}
+                  </p>
                   <p className="text-xs text-blue-700">Distance</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3 text-center">
                   <p className="text-2xl font-bold text-green-600">
-                    {travelTime}
+                    {routeInfo.travelTime}
                   </p>
                   <p className="text-xs text-green-700">Est. Time</p>
                 </div>
@@ -284,11 +289,12 @@ const AmbulanceDashboard = () => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedEmergencyForMap, setSelectedEmergencyForMap] = useState(null);
   const [manualCoordinates, setManualCoordinates] = useState("");
+  const [acceptingEmergency, setAcceptingEmergency] = useState(false);
   const navigate = useNavigate();
 
   // Get API base URL from environment variables
   const API_BASE =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
   useEffect(() => {
     const token = localStorage.getItem("ambulanceToken");
@@ -299,22 +305,159 @@ const AmbulanceDashboard = () => {
       return;
     }
 
+    // Validate token format
+    if (!token.includes(".")) {
+      console.error(
+        "❌ Invalid token format - does not contain JWT separators",
+      );
+      localStorage.removeItem("ambulanceToken");
+      localStorage.removeItem("ambulance");
+      navigate("/ambulance-login");
+      return;
+    }
+
+    console.log("✅ Token found:", token.substring(0, 20) + "...");
+
+    const ambulanceData = JSON.parse(ambulance);
+
+    // 🔴 CONNECT TO WEBSOCKET
+    socketService.connect(null, ambulanceData.id);
+
     fetchDashboardData();
     getCurrentLocation();
-    startEmergencyPolling();
+
+    // Setup socket listeners for real-time emergency updates
+    setupSocketListeners();
+
+    // Start location polling every 30 seconds
+    const locationInterval = setInterval(() => {
+      if (location.lat && location.lng) {
+        updateLocationToServer(location);
+      }
+    }, 30000);
+
+    // Cleanup
+    return () => {
+      clearInterval(locationInterval);
+      socketService.removeListener("new-emergency");
+      socketService.removeListener("emergency-taken");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startEmergencyPolling = () => {
-    checkForEmergencies();
+  // ✅ NEW: Re-setup socket listeners when status changes
+  // This ensures the status check is always current
+  useEffect(() => {
+    // Remove old listeners
+    socketService.removeListener("new-emergency");
+    socketService.removeListener("emergency-taken");
+    socketService.removeListener("emergency-accepted");
 
-    const intervalId = setInterval(() => {
-      if (status === "available" && location.lat && location.lng) {
-        checkForEmergencies();
+    // Setup fresh listeners with current status
+    setupSocketListeners();
+  }, [status]);
+
+  // ✅ NEW: Auto-close modal if status changes away from available
+  // This prevents showing the modal when driver goes offline/onDuty
+  useEffect(() => {
+    if (status !== "available" && showEmergencyModal) {
+      console.warn(
+        `⛔ Auto-closing emergency modal - ambulance is now ${status}`,
+      );
+      setShowEmergencyModal(false);
+      setCurrentEmergency(null);
+      setAcceptingEmergency(false);
+    }
+  }, [status]);
+
+  // Setup real-time socket listeners
+  const setupSocketListeners = () => {
+    // Listen for new emergencies
+    socketService.onNewEmergency((emergency) => {
+      console.log("🚨 New emergency received:", emergency);
+      console.log("📊 Current ambulance status:", status);
+
+      // ✅ FIXED: Only show popup if ambulance is AVAILABLE
+      setEmergencies((prev) => {
+        const exists = prev.some((e) => e._id === emergency._id);
+        if (exists) return prev;
+
+        const newEmergencies = [emergency, ...prev];
+
+        // Show modal ONLY if ambulance is available, NOT if offline or onDuty
+        if (status === "available") {
+          console.log("✅ Ambulance is AVAILABLE - showing emergency popup");
+          setCurrentEmergency(emergency);
+          setShowEmergencyModal(true);
+
+          addAlert({
+            type: "emergency",
+            message: `🚨 New emergency request at ${emergency.location}!`,
+            emergencyId: emergency._id,
+            timestamp: new Date(),
+          });
+
+          playNotificationSound();
+        } else {
+          console.warn(
+            `⛔ Ambulance is ${status} - NOT showing popup, added to list only`,
+          );
+        }
+
+        return newEmergencies;
+      });
+    });
+
+    // Listen for emergency taken by another ambulance
+    socketService.onEmergencyTaken((data) => {
+      console.log("❌ Emergency taken by another ambulance:", data);
+
+      // Remove from emergencies list
+      setEmergencies((prev) => prev.filter((e) => e._id !== data.emergencyId));
+
+      // Close modal if it's the current emergency
+      if (currentEmergency?._id === data.emergencyId) {
+        setShowEmergencyModal(false);
+        setCurrentEmergency(null);
       }
-      fetchDashboardData();
-    }, 10000);
 
-    return () => clearInterval(intervalId);
+      addAlert({
+        type: "info",
+        message: `📋 Emergency at taken by ${data.ambulanceName}`,
+        timestamp: new Date(),
+      });
+    });
+
+    // Listen for emergency accepted confirmation
+    socketService.onEmergencyAcceptedConfirm((data) => {
+      console.log("✅ Emergency accepted:", data);
+
+      setAssignedEmergency({
+        _id: data.emergencyId,
+        location: data.userLocation,
+        coordinates: data.userCoordinates,
+        userId: { name: data.userName, phone: data.userPhone },
+      });
+
+      setShowEmergencyModal(false);
+      setCurrentEmergency(null);
+
+      addAlert({
+        type: "success",
+        message: "✅ You've accepted the emergency! Heading to location...",
+        timestamp: new Date(),
+      });
+    });
+
+    // Listen for ambulance connection status
+    socketService.onAmbulanceConnected((data) => {
+      console.log("Connected to emergency system:", data);
+      addAlert({
+        type: "success",
+        message: "✅ Connected to emergency system",
+        timestamp: new Date(),
+      });
+    });
   };
 
   const parseCoordinates = (coordString) => {
@@ -326,7 +469,7 @@ const AmbulanceDashboard = () => {
 
     if (parts.length !== 2) {
       throw new Error(
-        'Please enter coordinates in format: "latitude longitude" or "lat,lng"'
+        'Please enter coordinates in format: "latitude longitude" or "lat,lng"',
       );
     }
 
@@ -365,7 +508,7 @@ const AmbulanceDashboard = () => {
       addAlert({
         type: "success",
         message: `📍 Location updated to: ${coords.lat.toFixed(
-          6
+          6,
         )} ${coords.lng.toFixed(6)}`,
         timestamp: new Date(),
       });
@@ -381,58 +524,6 @@ const AmbulanceDashboard = () => {
     }
   };
 
-  const checkForEmergencies = async () => {
-    try {
-      const token = localStorage.getItem("ambulanceToken");
-      const response = await fetch(
-        `${API_BASE}/ambulances/emergencies/nearby`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-
-        if (data.success && data.emergencies.length > 0) {
-          const newEmergencies = data.emergencies;
-
-          const existingIds = new Set(emergencies.map((e) => e._id));
-          const uniqueNewEmergencies = newEmergencies.filter(
-            (emergency) =>
-              !existingIds.has(emergency._id) && emergency.status === "pending"
-          );
-
-          if (uniqueNewEmergencies.length > 0) {
-            setEmergencies((prev) => [...prev, ...uniqueNewEmergencies]);
-
-            const closestEmergency = uniqueNewEmergencies.reduce(
-              (closest, current) =>
-                current.distance < closest.distance ? current : closest
-            );
-
-            setCurrentEmergency(closestEmergency);
-            setShowEmergencyModal(true);
-
-            addAlert({
-              type: "emergency",
-              message: `New emergency request at ${closestEmergency.location} (${closestEmergency.distance}km away)`,
-              emergencyId: closestEmergency._id,
-              timestamp: new Date(),
-            });
-
-            playNotificationSound();
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error checking for emergencies:", error);
-    }
-  };
-
   const addAlert = (alert) => {
     const newAlert = {
       id: Date.now(),
@@ -445,8 +536,8 @@ const AmbulanceDashboard = () => {
   const markAlertAsRead = (alertId) => {
     setAlerts((prev) =>
       prev.map((alert) =>
-        alert.id === alertId ? { ...alert, read: true } : alert
-      )
+        alert.id === alertId ? { ...alert, read: true } : alert,
+      ),
     );
   };
 
@@ -465,8 +556,9 @@ const AmbulanceDashboard = () => {
   const playNotificationSound = () => {
     // Simple beep sound using Web Audio API
     try {
-      const audioContext = new (window.AudioContext ||
-        window.webkitAudioContext)();
+      const audioContext = new (
+        window.AudioContext || window.webkitAudioContext
+      )();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -481,13 +573,13 @@ const AmbulanceDashboard = () => {
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(
         0.01,
-        audioContext.currentTime + 0.5
+        audioContext.currentTime + 0.5,
       );
 
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
     } catch (error) {
-      console.log("Audio context not supported");
+      console.log("Audio context not supported", error);
     }
   };
 
@@ -534,12 +626,12 @@ const AmbulanceDashboard = () => {
           };
           setLocation(newLocation);
           setManualCoordinates(
-            `${newLocation.lat.toFixed(6)} ${newLocation.lng.toFixed(6)}`
+            `${newLocation.lat.toFixed(6)} ${newLocation.lng.toFixed(6)}`,
           );
           addAlert({
             type: "success",
             message: `📍 GPS location updated: ${newLocation.lat.toFixed(
-              6
+              6,
             )} ${newLocation.lng.toFixed(6)}`,
             timestamp: new Date(),
           });
@@ -557,7 +649,7 @@ const AmbulanceDashboard = () => {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 60000,
-        }
+        },
       );
     }
   };
@@ -595,7 +687,7 @@ const AmbulanceDashboard = () => {
         addAlert({
           type: "success",
           message: `📍 Location updated successfully: ${locationToUpdate.lat.toFixed(
-            6
+            6,
           )} ${locationToUpdate.lng.toFixed(6)}`,
           timestamp: new Date(),
         });
@@ -686,8 +778,62 @@ const AmbulanceDashboard = () => {
   };
 
   const acceptEmergency = async (emergency) => {
+    // Prevent double submissions
+    if (acceptingEmergency) {
+      console.warn("⚠️ Already processing emergency acceptance");
+      return;
+    }
+
+    // ✅ NEW: Check if ambulance is available
+    if (status !== "available") {
+      addAlert({
+        type: "error",
+        message: `❌ Cannot accept emergency - ambulance status is "${status}". You must be available to accept emergencies.`,
+        timestamp: new Date(),
+      });
+      alert(
+        `❌ Cannot accept - you are currently ${status}. Status must be "available" to accept emergencies.`,
+      );
+      setShowEmergencyModal(false);
+      setCurrentEmergency(null);
+      return;
+    }
+
     try {
+      setAcceptingEmergency(true);
       const token = localStorage.getItem("ambulanceToken");
+      const ambulance = JSON.parse(localStorage.getItem("ambulance"));
+
+      // Validate token exists and is not empty
+      if (!token || token.trim() === "") {
+        addAlert({
+          type: "error",
+          message: "❌ Authentication token missing. Please log in again.",
+          timestamp: new Date(),
+        });
+        navigate("/ambulance-login");
+        setAcceptingEmergency(false);
+        return;
+      }
+
+      // Validate ambulance data exists
+      if (!ambulance || !ambulance.id) {
+        addAlert({
+          type: "error",
+          message: "❌ Ambulance data missing. Please log in again.",
+          timestamp: new Date(),
+        });
+        navigate("/ambulance-login");
+        setAcceptingEmergency(false);
+        return;
+      }
+
+      console.log(
+        "📤 Sending accept request with token:",
+        token.substring(0, 20) + "...",
+      );
+      console.log("📤 Ambulance ID:", ambulance.id);
+
       const response = await fetch(
         `${API_BASE}/ambulances/emergencies/accept`,
         {
@@ -699,41 +845,163 @@ const AmbulanceDashboard = () => {
           body: JSON.stringify({
             emergencyId: emergency._id,
           }),
-        }
+        },
       );
 
-      const data = await response.json();
+      console.log("📥 Response status:", response.status);
+      console.log("📥 Response ok:", response.ok);
 
-      if (data.success) {
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("❌ Failed to parse JSON response:", parseError);
+        addAlert({
+          type: "error",
+          message: "Server error - invalid response format",
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      console.log("📥 Response data:", data);
+
+      if (response.ok && data.success) {
         addAlert({
           type: "success",
           message: `✅ Accepted emergency at ${emergency.location}`,
           timestamp: new Date(),
         });
 
+        // 🚨 EMIT SOCKET EVENT: Tell all other ambulances this emergency is taken
+        socketService.acceptEmergency(emergency._id, ambulance.id);
+
+        // ✅ NEW: Update ambulance status to "onDuty" in socket
+        // This will remove the ambulance from emergency-room for receiving new requests
+        const socket = socketService.getSocket();
+        if (socket) {
+          socket.emit("update-ambulance-status", {
+            ambulanceId: ambulance.id,
+            newStatus: "onDuty",
+          });
+          console.log("📡 Emitted ambulance status update to onDuty");
+        }
+
         setEmergencies((prev) => prev.filter((e) => e._id !== emergency._id));
         setAssignedEmergency(emergency);
+        setStatus("onDuty");
         setShowEmergencyModal(false);
         setCurrentEmergency(null);
+        setAcceptingEmergency(false);
 
         setSelectedEmergencyForMap(emergency);
         setShowMapModal(true);
 
         fetchDashboardData();
-      } else {
+      } else if (response.status === 401) {
+        console.warn("⚠️ Unauthorized - token might be expired");
+        // Token might be expired or invalid
+        localStorage.removeItem("ambulanceToken");
+        localStorage.removeItem("ambulance");
         addAlert({
           type: "error",
-          message: "Failed to accept emergency: " + data.message,
+          message: "❌ Session expired. Please log in again.",
           timestamp: new Date(),
         });
+        navigate("/ambulance-login");
+        setAcceptingEmergency(false);
+      } else if (response.status === 409) {
+        console.warn("⚠️ Conflict detected - Emergency already taken");
+        console.log("📥 Conflict response code:", data.code);
+        console.log("📥 Conflict response message:", data.message);
+        // Emergency already taken by another driver
+        if (data.code === "ALREADY_ACCEPTED") {
+          console.log("✓ Showing ALREADY_ACCEPTED alert");
+          const alertMsg = `⚠️ ${data.message}! This request is no longer available.`;
+          addAlert({
+            type: "warning",
+            message: alertMsg,
+            timestamp: new Date(),
+          });
+
+          // Show browser alert to make sure user sees it
+          alert(alertMsg);
+
+          // Remove the emergency from the list
+          setEmergencies((prev) => prev.filter((e) => e._id !== emergency._id));
+
+          // Close the modal after alert
+          setShowEmergencyModal(false);
+          setAcceptingEmergency(false);
+        } else if (data.code === "ALREADY_COMPLETED") {
+          console.log("✓ Showing ALREADY_COMPLETED alert");
+          const alertMsg =
+            "ℹ️ This emergency has already been completed by another ambulance.";
+          addAlert({
+            type: "info",
+            message: alertMsg,
+            timestamp: new Date(),
+          });
+
+          // Show browser alert to make sure user sees it
+          alert(alertMsg);
+
+          // Remove the emergency from the list
+          setEmergencies((prev) => prev.filter((e) => e._id !== emergency._id));
+
+          // Close the modal after alert
+          setShowEmergencyModal(false);
+          setAcceptingEmergency(false);
+        } else if (data.code === "ALREADY_ASSIGNED_OTHER") {
+          console.log("✓ Showing ALREADY_ASSIGNED_OTHER alert");
+          const alertMsg = `⚠️ ${data.message} You must complete your current assignment before accepting another.`;
+          addAlert({
+            type: "warning",
+            message: alertMsg,
+            timestamp: new Date(),
+          });
+
+          // Show browser alert to make sure user sees it
+          alert(alertMsg);
+          setAcceptingEmergency(false);
+        } else {
+          console.log("✓ Showing generic 409 alert");
+          const alertMsg = `⚠️ ${data.message}`;
+          addAlert({
+            type: "error",
+            message: alertMsg,
+            timestamp: new Date(),
+          });
+
+          // Show browser alert to make sure user sees it
+          alert("❌ Error: " + alertMsg);
+          setAcceptingEmergency(false);
+        }
+      } else {
+        console.error("❌ Unexpected response status:", response.status);
+        const errorMsg = data.message || "Failed to accept emergency";
+        addAlert({
+          type: "error",
+          message: errorMsg,
+          timestamp: new Date(),
+        });
+        // Show browser alert to make sure user sees it
+        alert("❌ Error: " + errorMsg);
+        setAcceptingEmergency(false);
       }
     } catch (error) {
-      console.error("Error accepting emergency:", error);
+      console.error("❌ Error accepting emergency:", error);
+      console.error("Error stack:", error.stack);
+      const errorMsg =
+        error.message || "Network error - failed to accept emergency";
       addAlert({
         type: "error",
-        message: "Failed to accept emergency: " + error.message,
+        message: "❌ " + errorMsg,
         timestamp: new Date(),
       });
+      // Show browser alert to make sure user sees it
+      alert("❌ Error: " + errorMsg);
+      setAcceptingEmergency(false);
     }
   };
 
@@ -753,7 +1021,7 @@ const AmbulanceDashboard = () => {
           body: JSON.stringify({
             emergencyId: assignedEmergency._id,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -765,7 +1033,19 @@ const AmbulanceDashboard = () => {
           timestamp: new Date(),
         });
 
+        // ✅ NEW: Update ambulance status back to "available"
+        const ambulance = JSON.parse(localStorage.getItem("ambulance"));
+        const socket = socketService.getSocket();
+        if (socket && ambulance) {
+          socket.emit("update-ambulance-status", {
+            ambulanceId: ambulance.id,
+            newStatus: "available",
+          });
+          console.log("📡 Emitted ambulance status update to available");
+        }
+
         setAssignedEmergency(null);
+        setStatus("available");
         fetchDashboardData();
       } else {
         addAlert({
@@ -788,6 +1068,7 @@ const AmbulanceDashboard = () => {
     setEmergencies((prev) => prev.filter((e) => e._id !== emergency._id));
     setShowEmergencyModal(false);
     setCurrentEmergency(null);
+    setAcceptingEmergency(false);
 
     addAlert({
       type: "warning",
@@ -817,15 +1098,9 @@ const AmbulanceDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("ambulanceToken");
-    localStorage.removeItem("ambulance");
-    navigate("/ambulance-login");
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-green-50 via-blue-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-500 border-t-transparent mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading your dashboard...</p>
@@ -839,17 +1114,29 @@ const AmbulanceDashboard = () => {
   const unreadCount = getUnreadAlertCount();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-cyan-50">
+    <div className="min-h-screen bg-linear-to-br from-green-50 via-blue-50 to-cyan-50">
       {/* Emergency Notification Modal */}
-      {showEmergencyModal && currentEmergency && (
+      {showEmergencyModal && currentEmergency && status === "available" && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full transform animate-pulse border-4 border-red-500">
-            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-2xl">
-              <div className="flex items-center justify-center space-x-3">
-                <div className="text-4xl animate-bounce">🚨</div>
-                <h2 className="text-2xl font-bold text-white text-center">
-                  EMERGENCY ALERT!
-                </h2>
+            <div className="bg-linear-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center justify-center space-x-3 flex-1">
+                  <div className="text-4xl animate-bounce">🚨</div>
+                  <h2 className="text-2xl font-bold text-white text-center">
+                    EMERGENCY ALERT!
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEmergencyModal(false);
+                    setCurrentEmergency(null);
+                  }}
+                  className="text-white hover:text-gray-200 text-3xl font-bold ml-2 shrink-0"
+                  title="Close"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
@@ -871,10 +1158,10 @@ const AmbulanceDashboard = () => {
                       <p className="font-semibold text-red-800">Coordinates</p>
                       <p className="text-red-700 font-mono text-sm">
                         {getEmergencyCoordinates(currentEmergency).lat.toFixed(
-                          6
+                          6,
                         )}{" "}
                         {getEmergencyCoordinates(currentEmergency).lng.toFixed(
-                          6
+                          6,
                         )}
                       </p>
                     </div>
@@ -924,20 +1211,42 @@ const AmbulanceDashboard = () => {
                 </div>
               </div>
 
-              <div className="flex space-x-4">
+              <div className="space-y-3">
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => acceptEmergency(currentEmergency)}
+                    disabled={acceptingEmergency || status !== "available"}
+                    className="flex-1 bg-linear-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      status !== "available"
+                        ? `Cannot accept - you are ${status}`
+                        : ""
+                    }
+                  >
+                    <span>{acceptingEmergency ? "⏳" : "✅"}</span>
+                    <span>
+                      {acceptingEmergency ? "Processing..." : "Accept"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => rejectEmergency(currentEmergency)}
+                    disabled={acceptingEmergency || status !== "available"}
+                    className="flex-1 bg-linear-to-r from-red-500 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>❌</span>
+                    <span>Reject</span>
+                  </button>
+                </div>
                 <button
-                  onClick={() => acceptEmergency(currentEmergency)}
-                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
+                  onClick={() => {
+                    setShowEmergencyModal(false);
+                    setCurrentEmergency(null);
+                    setAcceptingEmergency(false);
+                  }}
+                  disabled={acceptingEmergency}
+                  className="w-full bg-gray-400 hover:bg-gray-500 text-white py-3 rounded-xl font-bold text-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>✅</span>
-                  <span>Accept</span>
-                </button>
-                <button
-                  onClick={() => rejectEmergency(currentEmergency)}
-                  className="flex-1 bg-gradient-to-r from-red-500 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
-                >
-                  <span>❌</span>
-                  <span>Reject</span>
+                  🔕 Dismiss
                 </button>
               </div>
             </div>
@@ -963,7 +1272,7 @@ const AmbulanceDashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-14 h-14 bg-linear-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
                   <span className="text-2xl text-white">🚑</span>
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white"></div>
@@ -997,7 +1306,7 @@ const AmbulanceDashboard = () => {
                 {/* Alerts Panel */}
                 {showAlertsPanel && (
                   <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white rounded-t-2xl flex justify-between items-center">
+                    <div className="p-4 border-b border-gray-200 bg-linear-to-r from-gray-50 to-white rounded-t-2xl flex justify-between items-center">
                       <h3 className="font-bold text-gray-900 text-lg">
                         Notifications
                       </h3>
@@ -1047,19 +1356,19 @@ const AmbulanceDashboard = () => {
                                   alert.type === "emergency"
                                     ? "text-red-500"
                                     : alert.type === "success"
-                                    ? "text-green-500"
-                                    : alert.type === "warning"
-                                    ? "text-yellow-500"
-                                    : "text-blue-500"
+                                      ? "text-green-500"
+                                      : alert.type === "warning"
+                                        ? "text-yellow-500"
+                                        : "text-blue-500"
                                 }`}
                               >
                                 {alert.type === "emergency"
                                   ? "🚨"
                                   : alert.type === "success"
-                                  ? "✅"
-                                  : alert.type === "warning"
-                                  ? "⚠️"
-                                  : "ℹ️"}
+                                    ? "✅"
+                                    : alert.type === "warning"
+                                      ? "⚠️"
+                                      : "ℹ️"}
                               </span>
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-900">
@@ -1067,7 +1376,7 @@ const AmbulanceDashboard = () => {
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
                                   {new Date(
-                                    alert.timestamp
+                                    alert.timestamp,
                                   ).toLocaleTimeString()}
                                 </p>
                               </div>
@@ -1086,14 +1395,14 @@ const AmbulanceDashboard = () => {
               {/* Status Badges */}
               <div className="flex items-center space-x-3">
                 {emergencies.length > 0 && (
-                  <span className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg animate-pulse">
+                  <span className="bg-linear-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg animate-pulse">
                     🚨 {emergencies.length} Emergency
                     {emergencies.length !== 1 ? "s" : ""}
                   </span>
                 )}
 
                 {assignedEmergency && (
-                  <span className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg">
+                  <span className="bg-linear-to-r from-yellow-500 to-amber-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg">
                     📍 On Assignment
                   </span>
                 )}
@@ -1101,8 +1410,8 @@ const AmbulanceDashboard = () => {
                 <span
                   className={`px-4 py-2 rounded-xl font-semibold shadow-lg ${
                     ambulanceData.isApproved
-                      ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
-                      : "bg-gradient-to-r from-yellow-500 to-amber-600 text-white"
+                      ? "bg-linear-to-r from-green-500 to-emerald-600 text-white"
+                      : "bg-linear-to-r from-yellow-500 to-amber-600 text-white"
                   }`}
                 >
                   {ambulanceData.isApproved ? "✅ Approved" : "⏳ Pending"}
@@ -1111,22 +1420,22 @@ const AmbulanceDashboard = () => {
                 <span
                   className={`px-4 py-2 rounded-xl font-semibold shadow-lg ${
                     status === "available"
-                      ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                      ? "bg-linear-to-r from-green-500 to-emerald-600 text-white"
                       : status === "onDuty"
-                      ? "bg-gradient-to-r from-yellow-500 to-amber-600 text-white"
-                      : "bg-gradient-to-r from-red-500 to-pink-600 text-white"
+                        ? "bg-linear-to-r from-yellow-500 to-amber-600 text-white"
+                        : "bg-linear-to-r from-red-500 to-pink-600 text-white"
                   }`}
                 >
                   {status === "available"
                     ? "✅ Available"
                     : status === "onDuty"
-                    ? "🚨 On Duty"
-                    : "⏸️ Offline"}
+                      ? "🚨 On Duty"
+                      : "⏸️ Offline"}
                 </span>
 
                 {/* <button
                   onClick={handleLogout}
-                  className="bg-gradient-to-r from-gray-500 to-gray-700 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+                  className="bg-linear-to-r from-gray-500 to-gray-700 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                 >
                   🚪 Logout
                 </button> */}
@@ -1143,7 +1452,7 @@ const AmbulanceDashboard = () => {
           <div className="xl:col-span-1 space-y-6">
             {/* Current Assignment */}
             {assignedEmergency && (
-              <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-3xl p-1 shadow-2xl">
+              <div className="bg-linear-to-br from-yellow-400 to-amber-500 rounded-3xl p-1 shadow-2xl">
                 <div className="bg-white rounded-2xl p-6">
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center">
@@ -1179,13 +1488,13 @@ const AmbulanceDashboard = () => {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => openMapForEmergency(assignedEmergency)}
-                        className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
+                        className="flex-1 bg-linear-to-r from-blue-500 to-cyan-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
                       >
                         🗺️ View Map
                       </button>
                       <button
                         onClick={completeEmergency}
-                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
+                        className="flex-1 bg-linear-to-r from-green-500 to-emerald-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
                       >
                         ✅ Complete
                       </button>
@@ -1197,7 +1506,7 @@ const AmbulanceDashboard = () => {
 
             {/* Emergency Alerts Panel */}
             {emergencies.length > 0 && (
-              <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl p-1 shadow-2xl">
+              <div className="bg-linear-to-br from-red-500 to-pink-600 rounded-3xl p-1 shadow-2xl">
                 <div className="bg-white rounded-2xl p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -1251,10 +1560,10 @@ const AmbulanceDashboard = () => {
                               <span className="text-red-600">🎯</span>
                               <span className="text-red-700 text-sm font-mono">
                                 {getEmergencyCoordinates(emergency).lat.toFixed(
-                                  6
+                                  6,
                                 )}{" "}
                                 {getEmergencyCoordinates(emergency).lng.toFixed(
-                                  6
+                                  6,
                                 )}
                               </span>
                             </div>
@@ -1262,7 +1571,7 @@ const AmbulanceDashboard = () => {
                               <span className="text-red-600">🕒</span>
                               <span className="text-red-700 text-sm">
                                 {new Date(
-                                  emergency.createdAt
+                                  emergency.createdAt,
                                 ).toLocaleTimeString()}
                               </span>
                             </div>
@@ -1278,19 +1587,24 @@ const AmbulanceDashboard = () => {
                           <div className="flex space-x-2 pt-2">
                             <button
                               onClick={() => acceptEmergency(emergency)}
-                              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
+                              disabled={acceptingEmergency}
+                              className="flex-1 bg-linear-to-r from-green-500 to-emerald-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              ✅ Accept
+                              {acceptingEmergency
+                                ? "⏳ Processing..."
+                                : "✅ Accept"}
                             </button>
                             <button
                               onClick={() => openMapForEmergency(emergency)}
-                              className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
+                              disabled={acceptingEmergency}
+                              className="flex-1 bg-linear-to-r from-blue-500 to-cyan-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               🗺️ View Map
                             </button>
                             <button
                               onClick={() => rejectEmergency(emergency)}
-                              className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
+                              disabled={acceptingEmergency}
+                              className="flex-1 bg-linear-to-r from-gray-500 to-gray-600 text-white py-2 rounded-xl font-semibold text-sm hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               ❌ Ignore
                             </button>
@@ -1357,12 +1671,12 @@ const AmbulanceDashboard = () => {
                         stat.color === "green"
                           ? "text-green-600"
                           : stat.color === "blue"
-                          ? "text-blue-600"
-                          : stat.color === "yellow"
-                          ? "text-yellow-600"
-                          : stat.color === "purple"
-                          ? "text-purple-600"
-                          : "text-red-600"
+                            ? "text-blue-600"
+                            : stat.color === "yellow"
+                              ? "text-yellow-600"
+                              : stat.color === "purple"
+                                ? "text-purple-600"
+                                : "text-red-600"
                       }`}
                     >
                       {stat.value}
@@ -1465,7 +1779,7 @@ const AmbulanceDashboard = () => {
                     }
                     className={`p-6 rounded-2xl text-center transition-all duration-300 transform hover:-translate-y-2 ${
                       status === statusOption.status
-                        ? `bg-gradient-to-r ${statusOption.gradientFrom} ${statusOption.gradientTo} text-white shadow-2xl`
+                        ? `bg-linear-to-r ${statusOption.gradientFrom} ${statusOption.gradientTo} text-white shadow-2xl`
                         : "bg-gray-50 text-gray-700 hover:shadow-lg border-2 border-transparent hover:border-gray-200"
                     } disabled:opacity-50 disabled:transform-none disabled:hover:shadow-none`}
                   >
@@ -1498,7 +1812,7 @@ const AmbulanceDashboard = () => {
               </h3>
               <div className="space-y-6">
                 {/* Current Location Display */}
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-200">
+                <div className="bg-linear-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
                     <span className="mr-2">🎯</span>
                     Current Location
@@ -1528,7 +1842,7 @@ const AmbulanceDashboard = () => {
                 </div>
 
                 {/* Manual Coordinates Input */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200">
+                <div className="bg-linear-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200">
                   <h4 className="font-semibold text-purple-900 mb-4 flex items-center">
                     <span className="mr-2">🎯</span>
                     Enter Coordinates Manually
@@ -1566,7 +1880,7 @@ const AmbulanceDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={getCurrentLocation}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
+                    className="bg-linear-to-r from-blue-500 to-cyan-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2"
                   >
                     <span>📍</span>
                     <span>Refresh GPS</span>
@@ -1574,7 +1888,7 @@ const AmbulanceDashboard = () => {
                   <button
                     onClick={() => updateLocationToServer()}
                     disabled={!location.lat || updatingLocation}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    className="bg-linear-to-r from-green-500 to-emerald-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2"
                   >
                     {updatingLocation ? (
                       <>
@@ -1594,7 +1908,7 @@ const AmbulanceDashboard = () => {
                       updateLocationToServer();
                     }}
                     disabled={updatingLocation}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    className="bg-linear-to-r from-purple-500 to-pink-600 text-white p-4 rounded-2xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2"
                   >
                     <span>🔄</span>
                     <span>Refresh & Update</span>
@@ -1609,15 +1923,15 @@ const AmbulanceDashboard = () => {
                 <span className="mr-2">🚨</span>
                 Emergency Monitoring
               </h3>
-              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-2xl p-6 border border-yellow-500">
+              <div className="bg-linear-to-r from-yellow-50 to-amber-50 rounded-2xl p-6 border border-yellow-500">
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">
                       {status === "available"
                         ? "✅"
                         : status === "onDuty"
-                        ? "🚨"
-                        : "⏸️"}
+                          ? "🚨"
+                          : "⏸️"}
                     </span>
                   </div>
                   <div>
@@ -1625,15 +1939,15 @@ const AmbulanceDashboard = () => {
                       {status === "available"
                         ? "✅ You are available for emergency calls"
                         : status === "onDuty"
-                        ? "🚨 You are currently on duty"
-                        : "⏸️ You are currently offline"}
+                          ? "🚨 You are currently on duty"
+                          : "⏸️ You are currently offline"}
                     </p>
                     <p className="text-yellow-700">
                       {status === "available"
                         ? "System is actively monitoring for emergencies in your area"
                         : status === "onDuty"
-                        ? "Focus on your current emergency assignment"
-                        : "Set status to available to receive emergencies"}
+                          ? "Focus on your current emergency assignment"
+                          : "Set status to available to receive emergencies"}
                     </p>
                     {status === "available" && location.lat && location.lng && (
                       <p className="text-yellow-600 text-sm mt-2">
