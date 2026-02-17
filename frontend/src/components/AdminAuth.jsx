@@ -20,82 +20,90 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
       if (mode === "register") {
-        const response = await axios.post('/admin/register', formData)
-        alert('🎉 Admin registration successful!')
-        navigate('/admin-login')
+        const response = await axios.post("/admin/register", formData);
+        alert(
+          response.data.message || "Registration successful! Please log in.",
+        );
+        navigate("/admin-login");
       } else {
-        const response = await axios.post('/admin/login', formData)
-        const { token, admin } = response.data
-        localStorage.setItem('adminToken', token)
-        localStorage.setItem('admin', JSON.stringify(admin))
-        onLogin?.(token, admin)
-        navigate('/admin-dashboard')
+        const response = await axios.post("/admin/login", formData);
+        const { token, admin } = response.data;
+        localStorage.setItem("adminToken", token);
+        localStorage.setItem("admin", JSON.stringify(admin));
+        onLogin?.(token, admin);
+        navigate("/admin-dashboard");
       }
     } catch (error) {
-      console.error('Admin auth error:', error)
-      alert(error.response?.data?.message || `${mode === 'register' ? 'Registration' : 'Login'} failed`)
+      alert(
+        error.response?.data?.message ||
+          `${mode === "register" ? "Registration" : "Login"} failed`,
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 flex flex-col justify-center py-6 sm:py-12 px-3 sm:px-4 lg:px-8">
       {/* Background Decoration */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-40 -right-40 w-60 h-60 sm:w-80 sm:h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-60 h-60 sm:w-80 sm:h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-40 left-40 w-60 h-60 sm:w-80 sm:h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
       </div>
 
       <div className="relative">
         {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-blue-600 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-all duration-300">
-            <span className="text-4xl text-white">⚙️</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl sm:rounded-3xl shadow-2xl mb-4 sm:mb-6 transform hover:scale-105 transition-all duration-300">
+            <span className="text-3xl sm:text-4xl text-white">⚙️</span>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4">
-            {mode === 'register' ? 'Admin Registration' : 'Admin Portal'}
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-3 sm:mb-4 px-2">
+            {mode === "register" ? "Admin Registration" : "Admin Portal"}
           </h1>
-          <p className="text-gray-600 text-lg max-w-md mx-auto">
-            {mode === 'register' 
-              ? 'Create your administrator account to manage the platform'
-              : 'Welcome back! Access your administrative dashboard'
-            }
+          <p className="text-gray-600 text-base sm:text-lg max-w-md mx-auto px-4">
+            {mode === "register"
+              ? "Create your administrator account to manage the platform"
+              : "Welcome back! Access your administrative dashboard"}
           </p>
         </div>
 
         {/* Auth Card */}
-        <div className="max-w-md mx-auto">
-          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden transform hover:shadow-3xl transition-all duration-500">
+        <div className="max-w-md mx-auto px-3 sm:px-0">
+          <div className="bg-white/80 backdrop-blur-lg rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 overflow-hidden transform hover:shadow-3xl transition-all duration-500">
             {/* Card Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-8 py-6 text-white">
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 sm:px-8 py-5 sm:py-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">
-                    {mode === 'register' ? 'Create Account' : 'Admin Login'}
+                  <h2 className="text-xl sm:text-2xl font-bold">
+                    {mode === "register" ? "Create Account" : "Admin Login"}
                   </h2>
-                  <p className="text-purple-100 text-sm mt-1">
-                    {mode === 'register' ? 'Setup your administrator credentials' : 'Enter your credentials to continue'}
+                  <p className="text-purple-100 text-xs sm:text-sm mt-1">
+                    {mode === "register"
+                      ? "Setup your administrator credentials"
+                      : "Enter your credentials to continue"}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                  <span className="text-xl">🔐</span>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <span className="text-lg sm:text-xl">🔐</span>
                 </div>
               </div>
             </div>
 
             {/* Form Section */}
-            <div className="px-8 py-8">
-              <form className="space-y-6" onSubmit={handleSubmit}>
-                {mode === 'register' && (
+            <div className="px-4 sm:px-8 py-6 sm:py-8">
+              <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
+                {mode === "register" && (
                   <div className="space-y-2">
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="name"
+                      className="block text-xs sm:text-sm font-semibold text-gray-700"
+                    >
                       👤 Admin Name
                     </label>
                     <div className="relative">
@@ -117,7 +125,10 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                 )}
 
                 <div className="space-y-2">
-                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-semibold text-gray-700"
+                  >
                     📧 Email Address
                   </label>
                   <div className="relative">
@@ -138,7 +149,10 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-semibold text-gray-700"
+                  >
                     🔑 Password
                   </label>
                   <div className="relative">
@@ -157,7 +171,7 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      {showPassword ? '🙈' : '👁️'}
+                      {showPassword ? "🙈" : "👁️"}
                     </button>
                   </div>
                 </div>
@@ -176,8 +190,12 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                       </>
                     ) : (
                       <>
-                        <span>{mode === 'register' ? '🚀' : '🔓'}</span>
-                        <span>{mode === 'register' ? 'Create Admin Account' : 'Access Dashboard'}</span>
+                        <span>{mode === "register" ? "🚀" : "🔓"}</span>
+                        <span>
+                          {mode === "register"
+                            ? "Create Admin Account"
+                            : "Access Dashboard"}
+                        </span>
                       </>
                     )}
                   </button>
@@ -186,11 +204,11 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                 {/* Switch Mode Link */}
                 <div className="text-center pt-4 border-t border-gray-200">
                   <p className="text-gray-600 text-sm">
-                    {mode === 'register' ? (
+                    {mode === "register" ? (
                       <>
-                        Already have an account?{' '}
-                        <Link 
-                          to="/admin-login" 
+                        Already have an account?{" "}
+                        <Link
+                          to="/admin-login"
                           className="font-semibold text-purple-600 hover:text-purple-700 transition-colors duration-300 hover:underline"
                         >
                           Sign in here
@@ -228,10 +246,12 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
                 <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                   <span className="text-green-600 text-lg">⚠️</span>
                 </div>
-                <h3 className="font-semibold text-gray-800">Admin Access Only</h3>
+                <h3 className="font-semibold text-gray-800">
+                  Admin Access Only
+                </h3>
               </div>
               <p className="text-gray-600 text-sm">
-                This portal is restricted to authorized administrators only. 
+                This portal is restricted to authorized administrators only.
                 Unauthorized access attempts will be logged and monitored.
               </p>
             </div>
@@ -242,10 +262,18 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
       {/* Custom Animations */}
       <style jsx>{`
         @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
         }
         .animate-blob {
           animation: blob 7s infinite;
@@ -258,7 +286,7 @@ const AdminAuth = ({ mode = "login", onLogin }) => {
         }
       `}</style>
     </div>
-  )
+  );
 }
 
 export default AdminAuth

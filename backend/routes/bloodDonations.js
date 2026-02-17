@@ -1,13 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth");
-
-// Import controller
 const bloodDonationController = require("../controllers/bloodDonationController");
 
-// =============================================
-// ✅ PUBLIC ROUTES (No authentication required)
-// =============================================
+// PUBLIC ROUTES
 
 // Blood Requests
 router.get("/requests", bloodDonationController.getAllRequests);
@@ -23,9 +19,9 @@ router.get(
   bloodDonationController.getNearbyBloodBanks
 ); // City-specific
 
-// =============================================
-// ✅ PROTECTED ROUTES (Authentication required)
-// =============================================
+
+// PROTECTED ROUTES (Authentication required)
+
 
 // Blood Request Management
 router.post("/request", auth, bloodDonationController.createBloodRequest);
@@ -60,20 +56,17 @@ router.delete(
   bloodDonationController.clearAllNotifications
 );
 
-// =============================================
-// ✅ BLOOD BANK SPECIFIC PROTECTED ROUTES
-// =============================================
 
-// Get blood banks with user's location (requires auth to get user location)
+// BLOOD BANK SPECIFIC PROTECTED ROUTES
+
+
+
 router.get(
   "/my-nearby-bloodbanks",
   auth,
   bloodDonationController.getNearbyBloodBanks
 );
 
-// Blood bank favorites (if you want to implement later)
-// router.post("/bloodbanks/favorite", auth, bloodDonationController.addFavoriteBloodBank);
-// router.get("/bloodbanks/favorites", auth, bloodDonationController.getFavoriteBloodBanks);
-// router.delete("/bloodbanks/favorite/:id", auth, bloodDonationController.removeFavoriteBloodBank);
+
 
 module.exports = router;

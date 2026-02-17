@@ -100,11 +100,12 @@ const Hospital = ({ user }) => {
   // Fetch all hospitals on component mount
   useEffect(() => {
     fetchAllHospitals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    
+
     // Clean the search input
     const cleanedCity = searchCity.trim();
     if (cleanedCity !== searchCity) {
@@ -131,7 +132,8 @@ const Hospital = ({ user }) => {
     if (allHospitals.length > 0) {
       handleFilterChange();
     }
-  }, [searchCity, bedType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchCity, bedType, allHospitals.length]);
 
   const handleLogout = async () => {
     try {
@@ -190,7 +192,7 @@ const Hospital = ({ user }) => {
       const bedAvailability = getBedAvailability(hospital);
       const hospitalAvailableBeds = Object.values(bedAvailability).reduce(
         (sum, bed) => sum + (bed.available || 0),
-        0
+        0,
       );
 
       if (hospitalAvailableBeds > 0) {
@@ -218,41 +220,42 @@ const Hospital = ({ user }) => {
     },
   ];
 
-  const reserveBed = async (hospitalId, bedType) => {
-    if (!user) {
-      alert("Please login to reserve a bed");
-      navigate("/login");
-      return;
-    }
+  // Commented out - bed reservation feature not currently in use
+  // const reserveBed = async (hospitalId, bedType) => {
+  //   if (!user) {
+  //     alert("Please login to reserve a bed");
+  //     navigate("/login");
+  //     return;
+  //   }
 
-    if (!confirm(`Reserve a ${bedType} bed at this hospital?`)) return;
+  //   if (!confirm(`Reserve a ${bedType} bed at this hospital?`)) return;
 
-    try {
-      const response = await axios.post(
-        "/hospitals/reserve-bed",
-        {
-          hospitalId,
-          bedType,
-          durationMinutes: 30,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+  //   try {
+  //     const response = await axios.post(
+  //       "/hospitals/reserve-bed",
+  //       {
+  //         hospitalId,
+  //         bedType,
+  //         durationMinutes: 30,
+  //       },
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${localStorage.getItem("token")}`,
+  //         },
+  //       }
+  //     );
 
-      if (response.data.success) {
-        alert(
-          "✅ Bed reserved successfully! You have 30 minutes to reach the hospital."
-        );
-        fetchAllHospitals(); // Refresh data
-      }
-    } catch (error) {
-      console.error("Error reserving bed:", error);
-      alert(error.response?.data?.message || "Failed to reserve bed");
-    }
-  };
+  //     if (response.data.success) {
+  //       alert(
+  //         "✅ Bed reserved successfully! You have 30 minutes to reach the hospital."
+  //       );
+  //       fetchAllHospitals(); // Refresh data
+  //     }
+  //   } catch (error) {
+  //     console.error("Error reserving bed:", error);
+  //     alert(error.response?.data?.message || "Failed to reserve bed");
+  //   }
+  // };
 
   const getBedColor = (available, total) => {
     if (available === 0) return "red";
@@ -264,10 +267,10 @@ const Hospital = ({ user }) => {
   const getSearchExamples = () => {
     const examples = [
       "Manglore",
-      "Bangalore, Karnataka", 
+      "Bangalore, Karnataka",
       "Karnataka",
       "Delhi",
-      "Mumbai, Maharashtra"
+      "Mumbai, Maharashtra",
     ];
     return examples[Math.floor(Math.random() * examples.length)];
   };
@@ -276,23 +279,24 @@ const Hospital = ({ user }) => {
   const hasActiveFilters = searchCity || bedType;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 py-4 sm:py-6 md:py-8 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-xl mb-6">
-            <span className="text-3xl text-white">🏥</span>
+        <div className="text-center mb-6 sm:mb-8 md:mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-600 rounded-2xl shadow-xl mb-4 sm:mb-6 animate-pulse">
+            <span className="text-2xl sm:text-3xl text-white">🏥</span>
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent mb-3 sm:mb-4 px-2">
             Hospital Services
           </h1>
-          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-            Find hospitals with real-time bed availability and reserve beds instantly
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-3xl mx-auto px-2">
+            Find hospitals with real-time bed availability and reserve beds
+            instantly
           </p>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-2xl shadow-xl p-6 border border-blue-100 transform hover:-translate-y-1 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
@@ -303,7 +307,7 @@ const Hospital = ({ user }) => {
                   {stats.totalHospitals}
                 </h3>
                 <p className="text-gray-500 text-sm mt-1">
-                  {hasActiveFilters ? 'Matching filters' : 'In system'}
+                  {hasActiveFilters ? "Matching filters" : "In system"}
                 </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -348,20 +352,21 @@ const Hospital = ({ user }) => {
         </div>
 
         {/* Enhanced Search Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-gray-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                 Find Hospital Beds
               </h2>
-              <p className="text-gray-600">
-                Search by city, state, or full location - we'll find the best matches
+              <p className="text-sm sm:text-base text-gray-600">
+                Search by city, state, or full location - we'll find the best
+                matches
               </p>
             </div>
             {user && (
               <button
                 onClick={handleLogout}
-                className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
+                className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold hover:shadow-lg transition-all duration-300 w-full sm:w-auto"
               >
                 Logout
               </button>
@@ -370,10 +375,10 @@ const Hospital = ({ user }) => {
 
           <form
             onSubmit={handleSearch}
-            className="grid grid-cols-1 md:grid-cols-5 gap-4"
+            className="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4"
           >
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                 📍 Search by Location
               </label>
               <input
@@ -381,20 +386,20 @@ const Hospital = ({ user }) => {
                 value={searchCity}
                 onChange={(e) => setSearchCity(e.target.value)}
                 placeholder={`e.g., ${getSearchExamples()}`}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-gray-300 rounded-xl text-gray-700 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mt-1 sm:mt-2">
                 Try: City name, State, or both (e.g., "Manglore, Karnataka")
               </p>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
                 🛏️ Bed Type
               </label>
               <select
                 value={bedType}
                 onChange={(e) => setBedType(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-gray-300 rounded-xl text-gray-700 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">All Bed Types</option>
                 <option value="general">General Beds</option>
@@ -407,15 +412,18 @@ const Hospital = ({ user }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:transform-none"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:transform-none"
               >
                 {loading ? (
                   <div className="flex items-center justify-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Searching...</span>
+                    <span className="hidden sm:inline">Searching...</span>
                   </div>
                 ) : (
-                  "🔍 Search"
+                  <>
+                    <span className="hidden sm:inline">🔍 Search</span>
+                    <span className="sm:hidden">🔍</span>
+                  </>
                 )}
               </button>
             </div>
@@ -424,9 +432,10 @@ const Hospital = ({ user }) => {
                 type="button"
                 onClick={handleReset}
                 disabled={loading || !hasActiveFilters}
-                className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:transform-none"
+                className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:transform-none"
               >
-                🔄 Reset
+                <span className="hidden sm:inline">🔄 Reset</span>
+                <span className="sm:hidden">🔄</span>
               </button>
             </div>
           </form>
@@ -463,11 +472,11 @@ const Hospital = ({ user }) => {
           )}
 
           {/* Search Tips */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-800 mb-2 flex items-center text-sm sm:text-base">
               💡 Search Tips
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-blue-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs sm:text-sm text-blue-700">
               <div className="flex items-center">
                 <span className="mr-2">•</span>
                 <span>City only: "Manglore"</span>
@@ -519,7 +528,7 @@ const Hospital = ({ user }) => {
               const bedAvailability = getBedAvailability(hospital);
               const totalAvailable = Object.values(bedAvailability).reduce(
                 (sum, bed) => sum + (bed.available || 0),
-                0
+                0,
               );
 
               return (
@@ -593,8 +602,8 @@ const Hospital = ({ user }) => {
                                     color === "green"
                                       ? "bg-green-100"
                                       : color === "yellow"
-                                      ? "bg-yellow-100"
-                                      : "bg-red-100"
+                                        ? "bg-yellow-100"
+                                        : "bg-red-100"
                                   }`}
                                 >
                                   <span className="text-lg">
@@ -616,8 +625,8 @@ const Hospital = ({ user }) => {
                                     color === "green"
                                       ? "bg-green-100 text-green-800"
                                       : color === "yellow"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-red-100 text-red-800"
                                   }`}
                                 >
                                   {available > 0
@@ -675,7 +684,7 @@ const Hospital = ({ user }) => {
 
                               // Fallback to address if no city match
                               return `https://maps.google.com/?q=${encodeURIComponent(
-                                hospital.address || hospital.city || ""
+                                hospital.address || hospital.city || "",
                               )}`;
                             };
 

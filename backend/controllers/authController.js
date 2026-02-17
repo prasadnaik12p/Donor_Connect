@@ -50,14 +50,9 @@ const register = async (req, res) => {
       await sendEmail(
         user.email,
         "Verify Your Email - Donor Connect",
-        emailTemplates.verificationEmail(user.name, verificationLink)
+        emailTemplates.verificationEmail(user.name, verificationLink),
       );
-    } catch (emailError) {
-      console.warn(
-        "Email send failed, logging verification URL:",
-        verificationLink
-      );
-    }
+    } catch (emailError) {}
 
     res.status(201).json({
       success: true,
@@ -73,20 +68,18 @@ const register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors
+        message: "Validation error",
+        errors,
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Server error during registration'
+      message: "Server error during registration",
     });
   }
 };
@@ -99,18 +92,18 @@ const verifyEmail = async (req, res) => {
     if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Verification token is required'
+        message: "Verification token is required",
       });
     }
 
-    const user = await User.findOne({ 
-      emailVerificationToken: token 
+    const user = await User.findOne({
+      emailVerificationToken: token,
     });
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired verification token'
+        message: "Invalid or expired verification token",
       });
     }
 
@@ -124,7 +117,7 @@ const verifyEmail = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Email verified successfully!',
+      message: "Email verified successfully!",
       token: authToken,
       user: {
         id: user._id,
@@ -132,15 +125,13 @@ const verifyEmail = async (req, res) => {
         email: user.email,
         role: user.role,
         bloodType: user.bloodType,
-        isVerified: user.isVerified
-      }
+        isVerified: user.isVerified,
+      },
     });
-
   } catch (error) {
-    console.error('Email verification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during email verification'
+      message: "Server error during email verification",
     });
   }
 };
@@ -149,7 +140,6 @@ const verifyEmail = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("Login attempt for email:", email);
 
     // Validate input
     if (!email || !password) {
@@ -177,7 +167,6 @@ const login = async (req, res) => {
       });
     }
 
-    // FIX: Use bcrypt directly instead of the custom method
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -210,7 +199,6 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
     res.status(500).json({
       success: false,
       message: "Server error during login",
@@ -233,7 +221,6 @@ const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      // Don't reveal whether email exists or not
       return res.status(200).json({
         success: true,
         message: "If the email exists, a password reset link has been sent",
@@ -250,7 +237,7 @@ const forgotPassword = async (req, res) => {
     await sendEmail(
       user.email,
       "Reset Your Password - Donor Connect",
-      emailTemplates.passwordReset(user.name, resetLink)
+      emailTemplates.passwordReset(user.name, resetLink),
     );
 
     res.status(200).json({
@@ -258,7 +245,6 @@ const forgotPassword = async (req, res) => {
       message: "If the email exists, a password reset link has been sent",
     });
   } catch (error) {
-    console.error("Forgot password error:", error);
     res.status(500).json({
       success: false,
       message: "Server error during password reset request",
@@ -302,7 +288,6 @@ const resetPassword = async (req, res) => {
         "Password reset successfully. You can now login with your new password.",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
     res.status(500).json({
       success: false,
       message: "Server error during password reset",
@@ -338,7 +323,6 @@ const getProfile = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get profile error:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching profile",
@@ -360,7 +344,7 @@ const updateProfile = async (req, res) => {
     const updates = Object.keys(req.body);
 
     const isValidOperation = updates.every((update) =>
-      allowedUpdates.includes(update)
+      allowedUpdates.includes(update),
     );
 
     if (!isValidOperation) {
@@ -401,8 +385,6 @@ const updateProfile = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update profile error:", error);
-
     if (error.name === "ValidationError") {
       const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
@@ -434,7 +416,6 @@ const resendVerification = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      // Don't reveal whether email exists or not
       return res.status(200).json({
         success: true,
         message: "If the email exists, a verification link has been sent",
@@ -461,10 +442,9 @@ const resendVerification = async (req, res) => {
       await sendEmail(
         user.email,
         "Verify Your Email - Donor Connect",
-        emailTemplates.verificationEmail(user.name, verificationLink)
+        emailTemplates.verificationEmail(user.name, verificationLink),
       );
     } catch (emailError) {
-      console.warn("Email send failed:", emailError);
       return res.status(500).json({
         success: false,
         message: "Failed to send verification email",
@@ -476,7 +456,6 @@ const resendVerification = async (req, res) => {
       message: "If the email exists, a verification link has been sent",
     });
   } catch (error) {
-    console.error("Resend verification error:", error);
     res.status(500).json({
       success: false,
       message: "Server error during verification resend",

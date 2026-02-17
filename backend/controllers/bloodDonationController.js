@@ -2,13 +2,13 @@ const BloodRequest = require("../models/BloodRequest");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
-// 🩸 Create a new blood request (Recipient)
+//  Create a new blood request (Recipient)
 exports.createBloodRequest = async (req, res) => {
   try {
     const { bloodType, units, urgency, location, scheduledDate, notes } =
       req.body;
 
-    console.log("🩸 Creating blood request - User:", req.user?.id);
+   
 
     if (!bloodType || !units) {
       return res.status(400).json({
@@ -17,9 +17,7 @@ exports.createBloodRequest = async (req, res) => {
     }
 
     // Create the blood request
-    // ✅ SECURITY: Always use req.user.id from JWT token as recipient
-    // NEVER accept recipient ID from frontend as it can be spoofed
-    // The frontend validates session to prevent multi-tab issues
+  
     const bloodRequest = await BloodRequest.create({
       recipient: req.user.id, // Logged-in user is the recipient
       bloodType,
@@ -39,7 +37,7 @@ exports.createBloodRequest = async (req, res) => {
     // WebSocket broadcast for real-time updates
     const io = req.app.get("io");
 
-    // ✅ BROADCAST: Send to all donors in blood-donors room
+    // Send to all donors in blood-donors room
     io.to("blood-donors").emit("new-blood-request", {
       message: "🆕 New blood request created",
       request: populatedRequest,
@@ -55,11 +53,11 @@ exports.createBloodRequest = async (req, res) => {
     });
 
     res.status(201).json({
-      message: "✅ Blood request created successfully",
+      message: "Blood request created successfully",
       request: populatedRequest,
     });
   } catch (error) {
-    console.error("❌ Error creating blood request:", error);
+    
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -67,7 +65,7 @@ exports.createBloodRequest = async (req, res) => {
   }
 };
 
-// 📋 Get all blood requests (Public - but with authorization checks)
+//  Get all blood requests (Public - but with authorization checks)
 exports.getAllRequests = async (req, res) => {
   try {
     const { status, bloodType, city } = req.query;
@@ -106,19 +104,13 @@ exports.getAllRequests = async (req, res) => {
   }
 };
 
-// 💖 Accept blood request (Donor)
-// 💖 Accept blood request (Donor) - WITH NOTIFICATION
+
+//  Accept blood request (Donor) 
 exports.acceptBloodRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const donorId = req.user.id;
 
-    console.log(`💖 Donor ${donorId} accepting request ${id}`);
-    console.log(`ℹ️ Donor user object:`, {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-    });
 
     // Find the request
     const request = await BloodRequest.findById(id)
@@ -126,32 +118,23 @@ exports.acceptBloodRequest = async (req, res) => {
       .populate("donor", "name email phone");
 
     if (!request) {
-      console.error(`❌ Request ${id} not found`);
+      
       return res.status(404).json({ message: "Blood request not found" });
     }
 
-    console.log(`📋 Request found:`, {
-      id: request._id,
-      status: request.status,
-      recipient: request.recipient._id.toString(),
-      donorId: donorId,
-    });
+   
 
-    // ✅ Authorization: Cannot accept your own request
+    //  Authorization: Cannot accept your own request
     if (request.recipient._id.toString() === donorId) {
-      console.warn(
-        `⚠️ User ${donorId} tried to accept their own request ${id}`,
-      );
+     
       return res.status(403).json({
         message: "You cannot accept your own blood request",
       });
     }
 
-    // ✅ Authorization: Only pending requests can be accepted
+    //  Authorization: Only pending requests can be accepted
     if (request.status !== "pending") {
-      console.warn(
-        `⚠️ Request ${id} is not pending (status: ${request.status})`,
-      );
+      
       return res.status(400).json({
         message: "This request is no longer available",
       });
@@ -160,23 +143,21 @@ exports.acceptBloodRequest = async (req, res) => {
     // Find donor details
     const donor = await User.findById(donorId);
     if (!donor) {
-      console.error(`❌ Donor ${donorId} not found in User collection`);
+     
       return res.status(404).json({ message: "Donor not found" });
     }
 
-    console.log(`✅ Donor found:`, donor.email);
+   
 
     // Update request status and assign donor
     request.status = "matched";
     request.donor = donorId;
     await request.save();
 
-    console.log(
-      `✅ Request ${id} status updated to "matched" with donor ${donorId}`,
-    );
+   
 
-    // ✅ Create notification for the recipient
-    const notificationMessage = `🎉 Your blood request for ${
+    // Create notification for the recipient
+    const notificationMessage = `Your blood request for ${
       request.bloodType
     } has been accepted by ${donor.name}. You can contact them at ${
       donor.email
@@ -192,14 +173,14 @@ exports.acceptBloodRequest = async (req, res) => {
     });
 
     console.log(
-      "✅ Notification created for recipient:",
+      "Notification created for recipient:",
       request.recipient._id,
     );
 
     // WebSocket notifications
     const io = req.app.get("io");
 
-    // ✅ TARGETED: Notify the recipient in real-time via their user room
+    // TARGETED: Notify the recipient in real-time via their user room
     io.to(`user-${request.recipient._id}`).emit("blood-request-accepted", {
       type: "NEW_NOTIFICATION",
       notification: notification,
@@ -208,7 +189,7 @@ exports.acceptBloodRequest = async (req, res) => {
       bloodType: request.bloodType,
     });
 
-    // ✅ BROADCAST: Remove request from all donors' list
+    //  BROADCAST: Remove request from all donors' list
     io.to("blood-donors").emit("blood-request-taken", {
       requestId: request._id,
       message: `Blood request for ${request.bloodType} ${request.units} unit(s) was already matched`,
@@ -231,7 +212,7 @@ exports.acceptBloodRequest = async (req, res) => {
         .populate("recipient", "name email phone"),
     });
   } catch (error) {
-    console.error("Error accepting blood request:", error);
+   
     res.status(500).json({
       message: "Error accepting blood request",
       error: error.message,
@@ -239,7 +220,7 @@ exports.acceptBloodRequest = async (req, res) => {
   }
 };
 
-// ✏️ Update blood request (Only by Recipient)
+//  Update blood request (Only by Recipient)
 exports.updateRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -259,7 +240,7 @@ exports.updateRequest = async (req, res) => {
       });
     }
 
-    // ✅ Authorization: Only pending requests can be updated
+    //  Authorization: Only pending requests can be updated
     if (request.status !== "pending") {
       return res.status(400).json({
         message: "Cannot update a request that has been accepted or completed",
@@ -310,7 +291,7 @@ exports.updateRequest = async (req, res) => {
   }
 };
 
-// ❌ Delete blood request (Only by Recipient)
+//  Delete blood request (Only by Recipient)
 exports.deleteRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -319,7 +300,7 @@ exports.deleteRequest = async (req, res) => {
     // Find request and check ownership
     const request = await BloodRequest.findOne({
       _id: id,
-      recipient: userId, // ✅ Only recipient can delete
+      recipient: userId, 
     });
 
     if (!request) {
@@ -329,7 +310,7 @@ exports.deleteRequest = async (req, res) => {
       });
     }
 
-    // ✅ Authorization: Only pending requests can be deleted
+    //  Authorization: Only pending requests can be deleted
     if (request.status !== "pending") {
       return res.status(400).json({
         message: "Cannot delete a request that has been accepted or completed",
@@ -357,7 +338,6 @@ exports.deleteRequest = async (req, res) => {
       message: "🗑️ Blood request deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting request:", error);
     res.status(500).json({
       message: "Error deleting request",
       error: error.message,
@@ -365,7 +345,7 @@ exports.deleteRequest = async (req, res) => {
   }
 };
 
-// ✅ Complete blood request (Both Recipient and Donor)
+//  Complete blood request (Both Recipient and Donor)
 exports.completeBloodRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -379,7 +359,7 @@ exports.completeBloodRequest = async (req, res) => {
       return res.status(404).json({ message: "Blood request not found" });
     }
 
-    // ✅ Authorization: Only recipient or donor can complete
+    //  Authorization: Only recipient or donor can complete
     const isRecipient = request.recipient._id.toString() === userId;
     const isDonor = request.donor && request.donor._id.toString() === userId;
 
@@ -390,7 +370,7 @@ exports.completeBloodRequest = async (req, res) => {
       });
     }
 
-    // ✅ Authorization: Only matched requests can be completed
+    // Authorization: Only matched requests can be completed
     if (request.status !== "matched") {
       return res.status(400).json({
         message: "Only matched requests can be completed",
@@ -402,7 +382,7 @@ exports.completeBloodRequest = async (req, res) => {
     await request.save();
 
     // Create notifications for both parties
-    const completedMessage = `✅ The blood request for ${request.bloodType} has been marked as completed.`;
+    const completedMessage = `The blood request for ${request.bloodType} has been marked as completed.`;
 
     await Notification.create({
       recipient: request.recipient._id,
@@ -422,7 +402,7 @@ exports.completeBloodRequest = async (req, res) => {
       });
     }
 
-    // ✅ Socket notifications
+    //  Socket notifications
     const io = req.app.get("io");
 
     // Notify both parties via their user rooms
@@ -448,7 +428,7 @@ exports.completeBloodRequest = async (req, res) => {
     });
 
     res.status(200).json({
-      message: "✅ Blood request marked as completed",
+      message: "Blood request marked as completed",
       request: request,
     });
   } catch (error) {
@@ -460,7 +440,7 @@ exports.completeBloodRequest = async (req, res) => {
   }
 };
 
-// 👤 Get user's blood requests (both as recipient and donor)
+//  Get user's blood requests (both as recipient and donor)
 exports.getMyBloodRequests = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -502,25 +482,7 @@ exports.getDonors = async (req, res) => {
   }
 };
 
-// 🏥 Get nearby blood banks
-exports.getNearbyBloodBanks = async (req, res) => {
-  try {
-    const { lat, lng, location } = req.query;
-    // ... your existing getNearbyBloodBanks implementation
-    res.status(200).json({
-      success: true,
-      bloodBanks: [], // Add your implementation here
-    });
-  } catch (error) {
-    console.error("Error fetching blood banks:", error);
-    res.status(500).json({
-      message: "Error fetching blood banks",
-      error: error.message,
-    });
-  }
-};
-
-// 🔔 Get user notifications
+//  Get user notifications
 exports.getUserNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -542,7 +504,7 @@ exports.getUserNotifications = async (req, res) => {
   }
 };
 
-// 📌 Mark notification as read
+// Mark notification as read
 exports.markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -569,7 +531,7 @@ exports.markNotificationAsRead = async (req, res) => {
   }
 };
 
-// 🗑️ Clear all notifications
+// Clear all notifications
 exports.clearAllNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -593,7 +555,7 @@ exports.getNearbyBloodBanks = async (req, res) => {
   try {
     const { lat, lng, radius = 10000, location } = req.query;
     
-    console.log(`🔍 Fetching blood banks with params:`, { lat, lng, radius, location });
+    console.log(` Fetching blood banks with params:`, { lat, lng, radius, location });
 
     // Check if we have required parameters
     if (!lat && !lng && !location) {
@@ -607,7 +569,7 @@ exports.getNearbyBloodBanks = async (req, res) => {
     
     // If no API key, return mock data
     if (!apiKey) {
-      console.log("⚠️ Google Maps API key not configured, returning mock data");
+      console.log(" Google Maps API key not configured, returning mock data");
       const mockBloodBanks = getMockBloodBanks(location || "Bangalore");
       return res.status(200).json({
         success: true,
@@ -628,13 +590,13 @@ exports.getNearbyBloodBanks = async (req, res) => {
       searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=blood+bank+hospital+${encodeURIComponent(location)}&type=hospital&key=${apiKey}`;
     }
 
-    console.log(`🌐 Calling Google Maps API: ${searchUrl}`);
+    console.log(`Calling Google Maps API: ${searchUrl}`);
 
     const response = await fetch(searchUrl);
     const data = await response.json();
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      console.error("❌ Google Maps API error:", data.status, data.error_message);
+      console.error("Google Maps API error:", data.status, data.error_message);
       // Fallback to mock data on API error
       const mockBloodBanks = getMockBloodBanks(location || "Bangalore");
       return res.status(200).json({
@@ -703,11 +665,11 @@ exports.getNearbyBloodBanks = async (req, res) => {
       );
     } else {
       // No results from API, use mock data
-      console.log("📭 No blood banks found via API, using mock data");
+      console.log("No blood banks found via API, using mock data");
       bloodBanks = getMockBloodBanks(location || "Bangalore");
     }
 
-    console.log(`✅ Found ${bloodBanks.length} blood banks/hospitals`);
+    console.log(`Found ${bloodBanks.length} blood banks/hospitals`);
 
     res.status(200).json({
       success: true,
@@ -718,7 +680,7 @@ exports.getNearbyBloodBanks = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error fetching blood banks:", error);
+    console.error("Error fetching blood banks:", error);
     
     // Always return mock data as fallback in case of error
     const mockBloodBanks = getMockBloodBanks(req.query.location || "Bangalore");
@@ -747,4 +709,138 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return distance < 1 ? 
     `${Math.round(distance * 1000)} meters` : 
     `${Math.round(distance * 10) / 10} km`;
+}
+
+// Helper function to generate mock blood bank data
+function getMockBloodBanks(location = "Bangalore") {
+  const bloodBanks = {
+    "Bangalore": [
+      {
+        id: "mock_1",
+        name: "Bangalore Blood Bank",
+        address: "Victoria Hospital Campus, Fort, Bangalore - 560002",
+        phone: "+91-80-26705317",
+        hours: "24 hours",
+        rating: 4.5,
+        distance: "2.5 km",
+        location: { lat: 12.9716, lng: 77.5946 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_2",
+        name: "Rotary TTK Blood Bank",
+        address: "TTK Road, Alwarpet, Chennai - 600018",
+        phone: "+91-44-24981088",
+        hours: "Mon-Sat: 8:00 AM - 6:00 PM",
+        rating: 4.7,
+        distance: "3.2 km",
+        location: { lat: 13.0358, lng: 80.2536 },
+        types: ["blood_bank"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_3",
+        name: "St. John's Medical College Blood Bank",
+        address: "Sarjapur Road, Bangalore - 560034",
+        phone: "+91-80-49467777",
+        hours: "24 hours",
+        rating: 4.6,
+        distance: "5.0 km",
+        location: { lat: 12.9279, lng: 77.6271 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_4",
+        name: "Indian Red Cross Society Blood Bank",
+        address: "Red Cross Bhavan, Race Course Road, Bangalore - 560001",
+        phone: "+91-80-22261122",
+        hours: "Mon-Sun: 9:00 AM - 5:00 PM",
+        rating: 4.3,
+        distance: "1.8 km",
+        location: { lat: 12.9698, lng: 77.5961 },
+        types: ["blood_bank"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_5",
+        name: "Narayana Health City Blood Bank",
+        address: "258/A, Bommasandra Industrial Area, Bangalore - 560099",
+        phone: "+91-80-67888888",
+        hours: "24 hours",
+        rating: 4.8,
+        distance: "12.5 km",
+        location: { lat: 12.8064, lng: 77.7527 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      }
+    ],
+    "Delhi": [
+      {
+        id: "mock_6",
+        name: "AIIMS Blood Bank",
+        address: "AIIMS, Ansari Nagar, New Delhi - 110029",
+        phone: "+91-11-26594494",
+        hours: "24 hours",
+        rating: 4.7,
+        distance: "3.0 km",
+        location: { lat: 28.5665, lng: 77.2102 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_7",
+        name: "Indian Red Cross Society - Delhi",
+        address: "Red Cross Road, New Delhi - 110001",
+        phone: "+91-11-23711551",
+        hours: "Mon-Sat: 9:00 AM - 5:00 PM",
+        rating: 4.4,
+        distance: "2.3 km",
+        location: { lat: 28.6139, lng: 77.2090 },
+        types: ["blood_bank"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      }
+    ],
+    "Mumbai": [
+      {
+        id: "mock_8",
+        name: "KEM Hospital Blood Bank",
+        address: "Acharya Donde Marg, Parel, Mumbai - 400012",
+        phone: "+91-22-24107000",
+        hours: "24 hours",
+        rating: 4.5,
+        distance: "4.2 km",
+        location: { lat: 19.0060, lng: 72.8777 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      },
+      {
+        id: "mock_9",
+        name: "Tata Memorial Hospital Blood Bank",
+        address: "Dr Ernest Borges Marg, Parel, Mumbai - 400012",
+        phone: "+91-22-24177000",
+        hours: "24 hours",
+        rating: 4.8,
+        distance: "4.5 km",
+        location: { lat: 19.0076, lng: 72.8774 },
+        types: ["blood_bank", "hospital"],
+        isOpen: true,
+        googleMapsUrl: "https://www.google.com/maps"
+      }
+    ]
+  };
+
+  // Return blood banks for the specified location, or Bangalore as default
+  const cityBanks = bloodBanks[location] || bloodBanks["Bangalore"];
+  
+  return cityBanks;
 }

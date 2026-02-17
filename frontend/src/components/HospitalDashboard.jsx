@@ -71,8 +71,7 @@ const HospitalDashboard = () => {
       })
       
       if (response.data.success) {
-        setDashboardData(response.data)
-        console.log('Dashboard data loaded:', response.data)
+        setDashboardData(response.data);
       } else {
         console.error('Failed to fetch dashboard data:', response.data.message)
         alert('Failed to load dashboard data')

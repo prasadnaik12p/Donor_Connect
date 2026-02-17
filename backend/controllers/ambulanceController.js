@@ -1,12 +1,11 @@
 const Ambulance = require("../models/Ambulance");
-const Emergency = require("../models/Emergency"); // Add this import
+const Emergency = require("../models/Emergency"); 
 const jwt = require("jsonwebtoken");
 
-// Register ambulance (pending admin approval)
+// Register ambulance with pending admin approval
 exports.registerAmbulance = async (req, res) => {
   try {
-    const { name, hospital, driverName, phone, email, password, location } =
-      req.body;
+    const { name, hospital, driverName, phone, email, password, location } = req.body;
 
     const exists = await Ambulance.findOne({ email });
     if (exists)
@@ -34,7 +33,6 @@ exports.registerAmbulance = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Ambulance registration error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -43,7 +41,7 @@ exports.registerAmbulance = async (req, res) => {
   }
 };
 
-// Login ambulance - SIMPLIFIED AUTHENTICATION
+// Login ambulance 
 exports.loginAmbulance = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -99,7 +97,6 @@ exports.loginAmbulance = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Ambulance login error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -133,7 +130,7 @@ exports.getAmbulanceDashboard = async (req, res) => {
       ];
     }
 
-    // Get nearby emergencies for this ambulance - FIXED: Use proper coordinates
+    // Get nearby emergencies for this ambulance 
     let nearbyEmergencies = [];
     if (ambulanceCoordinates[0] !== 0 && ambulanceCoordinates[1] !== 0) {
       nearbyEmergencies = await Emergency.find({
@@ -184,7 +181,6 @@ exports.getAmbulanceDashboard = async (req, res) => {
       assignedEmergency,
     });
   } catch (error) {
-    console.error("Dashboard error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -261,7 +257,6 @@ exports.getNearbyEmergencies = async (req, res) => {
       ambulanceLocation: ambulanceCoordinates,
     });
   } catch (error) {
-    console.error("Nearby emergencies error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -308,9 +303,7 @@ exports.acceptEmergency = async (req, res) => {
         ? assignedAmbulance.driverName || assignedAmbulance.name
         : "Another ambulance driver";
 
-      console.warn(
-        `⚠️ Emergency ${emergencyId} already accepted by ambulance ${emergency.assignedAmbulance} (${driverName})`,
-      );
+      
 
       return res.status(409).json({
         success: false,
@@ -365,7 +358,7 @@ exports.acceptEmergency = async (req, res) => {
     ambulance.assignedUser = emergency.userId;
     await ambulance.save();
 
-    // 🚨 EMIT REAL-TIME UPDATES
+    // EMIT REAL-TIME UPDATES
     const io = req.app.get("io");
     if (io) {
       // Notify all other ambulances that this emergency is taken
@@ -603,7 +596,7 @@ exports.updateLocation = async (req, res) => {
   }
 };
 
-// Get nearby available ambulances - IMPROVED WITH LOCATION FLEXIBILITY
+// Get nearby available ambulances 
 exports.getNearbyAmbulances = async (req, res) => {
   try {
     let { lng, lat, radius = 10000, city } = req.query;
@@ -644,7 +637,7 @@ exports.getNearbyAmbulances = async (req, res) => {
       });
     }
 
-    // If city provided, use text search
+    
     else if (city) {
       const ambulances = await Ambulance.find({
         status: "available",
@@ -723,7 +716,7 @@ exports.getEmergencyHistory = async (req, res) => {
 // Logout ambulance
 exports.logoutAmbulance = async (req, res) => {
   try {
-    console.log(`🚑 Ambulance ${req.user._id} logged out`);
+    console.log(`Ambulance ${req.user._id} logged out`);
     res.json({
       success: true,
       message: "Logout successful",

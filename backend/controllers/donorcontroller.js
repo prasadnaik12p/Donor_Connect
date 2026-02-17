@@ -2,13 +2,11 @@
 const Donor = require("../models/Donor");
 const User = require("../models/User");
 
-// 🩸 Register a new donor
-// 🩸 Register a new donor - UPDATED VERSION
+//  Register a new donor
+
 module.exports.registerDonor = async (req, res) => {
   try {
     const { username, phone, bloodGroup, city, state, coordinates } = req.body;
-
-    console.log("Registering donor with data:", req.body);
 
     // Find user to get userId
     const user = await User.findOne({
@@ -51,18 +49,15 @@ module.exports.registerDonor = async (req, res) => {
       donor,
     });
   } catch (error) {
-    console.error("Error registering donor:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// ✏️ Update donor info (like phone, bloodGroup, etc.)
+//  Update donor info (like phone, bloodGroup, etc.)
 module.exports.updateDonorInfo = async (req, res) => {
   try {
     const { donorId } = req.params;
     const updatedData = req.body;
-
-    console.log(`Updating donor ${donorId} with:`, updatedData);
 
     const donor = await Donor.findByIdAndUpdate(donorId, updatedData, {
       new: true,
@@ -79,17 +74,14 @@ module.exports.updateDonorInfo = async (req, res) => {
       donor,
     });
   } catch (error) {
-    console.error("Error updating donor:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// 📍 Update donor live location (auto when website opened)
+// Update donor live location (auto when website opened)
 module.exports.updateLocation = async (req, res) => {
   try {
     const { donorId, coordinates } = req.body;
-
-    console.log(`Updating location for donor ${donorId}:`, coordinates);
 
     if (!donorId || !coordinates || coordinates.length !== 2)
       return res.status(400).json({
@@ -106,7 +98,7 @@ module.exports.updateLocation = async (req, res) => {
         },
         lastLocationUpdate: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     if (!donor) return res.status(404).json({ message: "Donor not found" });
@@ -131,7 +123,6 @@ module.exports.updateLocation = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating location:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

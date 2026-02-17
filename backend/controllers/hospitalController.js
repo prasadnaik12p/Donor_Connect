@@ -17,7 +17,7 @@ exports.registerHospital = async (req, res) => {
       location,
     } = req.body;
 
-    console.log("📥 Received hospital registration data:", req.body);
+    console.log("Received hospital registration data:", req.body);
 
     const existing = await Hospital.findOne({
       $or: [{ email: email }, { registrationNumber: registrationNumber }],
@@ -74,7 +74,7 @@ exports.registerHospital = async (req, res) => {
       isApprovedByAdmin: false,
     });
 
-    console.log("✅ Hospital created successfully:", hospital._id);
+    console.log("Hospital created successfully:", hospital._id);
 
     res.status(201).json({
       message: "Hospital registered successfully. Awaiting admin approval.",
@@ -145,7 +145,7 @@ exports.loginHospital = async (req, res) => {
 
 exports.logoutHospital = async (req, res) => {
   try {
-    console.log(`🏥 Hospital ${req.user.id} logged out`);
+    console.log(`Hospital ${req.user.id} logged out`);
     res.json({
       success: true,
       message: "Hospital logout successful",
@@ -247,7 +247,7 @@ exports.updateBeds = async (req, res) => {
           occupied: generalBeds?.occupied || 0,
           available: Math.max(
             0,
-            (generalBeds?.total || 0) - (generalBeds?.occupied || 0)
+            (generalBeds?.total || 0) - (generalBeds?.occupied || 0),
           ),
         },
         icuBeds: {
@@ -255,7 +255,7 @@ exports.updateBeds = async (req, res) => {
           occupied: icuBeds?.occupied || 0,
           available: Math.max(
             0,
-            (icuBeds?.total || 0) - (icuBeds?.occupied || 0)
+            (icuBeds?.total || 0) - (icuBeds?.occupied || 0),
           ),
         },
         ventilatorBeds: {
@@ -263,7 +263,7 @@ exports.updateBeds = async (req, res) => {
           occupied: ventilatorBeds?.occupied || 0,
           available: Math.max(
             0,
-            (ventilatorBeds?.total || 0) - (ventilatorBeds?.occupied || 0)
+            (ventilatorBeds?.total || 0) - (ventilatorBeds?.occupied || 0),
           ),
         },
         pediatricIcuBeds: {
@@ -271,7 +271,7 @@ exports.updateBeds = async (req, res) => {
           occupied: pediatricIcuBeds?.occupied || 0,
           available: Math.max(
             0,
-            (pediatricIcuBeds?.total || 0) - (pediatricIcuBeds?.occupied || 0)
+            (pediatricIcuBeds?.total || 0) - (pediatricIcuBeds?.occupied || 0),
           ),
         },
       });
@@ -294,7 +294,7 @@ exports.updateBeds = async (req, res) => {
               : bedData.generalBeds.total) -
               (generalBeds.occupied !== undefined
                 ? generalBeds.occupied
-                : bedData.generalBeds.occupied)
+                : bedData.generalBeds.occupied),
           ),
         };
       }
@@ -314,7 +314,7 @@ exports.updateBeds = async (req, res) => {
               : bedData.icuBeds.total) -
               (icuBeds.occupied !== undefined
                 ? icuBeds.occupied
-                : bedData.icuBeds.occupied)
+                : bedData.icuBeds.occupied),
           ),
         };
       }
@@ -336,7 +336,7 @@ exports.updateBeds = async (req, res) => {
               : bedData.ventilatorBeds.total) -
               (ventilatorBeds.occupied !== undefined
                 ? ventilatorBeds.occupied
-                : bedData.ventilatorBeds.occupied)
+                : bedData.ventilatorBeds.occupied),
           ),
         };
       }
@@ -358,7 +358,7 @@ exports.updateBeds = async (req, res) => {
               : bedData.pediatricIcuBeds.total) -
               (pediatricIcuBeds.occupied !== undefined
                 ? pediatricIcuBeds.occupied
-                : bedData.pediatricIcuBeds.occupied)
+                : bedData.pediatricIcuBeds.occupied),
           ),
         };
       }
@@ -378,7 +378,7 @@ exports.updateBeds = async (req, res) => {
 
       bedData.availableBeds = Math.max(
         0,
-        bedData.totalBeds - bedData.occupiedBeds
+        bedData.totalBeds - bedData.occupiedBeds,
       );
 
       await bedData.save();
@@ -421,7 +421,7 @@ exports.getHospitalsWithBeds = async (req, res) => {
 
     let hospitalsWithBeds = hospitals.map((hospital) => {
       const bedData = allBedData.find(
-        (bed) => bed.hospital._id.toString() === hospital._id.toString()
+        (bed) => bed.hospital._id.toString() === hospital._id.toString(),
       );
 
       const calculateAvailableBeds = (bedTypeData) => {
@@ -463,15 +463,15 @@ exports.getHospitalsWithBeds = async (req, res) => {
           bedType === "general"
             ? "general"
             : bedType === "icu"
-            ? "icu"
-            : bedType === "ventilator"
-            ? "ventilator"
-            : "pediatricICU";
+              ? "icu"
+              : bedType === "ventilator"
+                ? "ventilator"
+                : "pediatricICU";
         return hospital.bedAvailability[bedTypeKey]?.available > 0;
       });
     }
 
-    console.log(`🏥 Found ${hospitalsWithBeds.length} hospitals with beds`);
+    console.log(` Found ${hospitalsWithBeds.length} hospitals with beds`);
 
     res.json({
       success: true,
@@ -506,10 +506,10 @@ exports.reserveBed = async (req, res) => {
       bedType === "general"
         ? "general"
         : bedType === "icu"
-        ? "icu"
-        : bedType === "ventilator"
-        ? "ventilator"
-        : "pediatricICU"
+          ? "icu"
+          : bedType === "ventilator"
+            ? "ventilator"
+            : "pediatricICU"
     }Beds`;
 
     if (bedData[bedTypeKey].available <= 0) {
@@ -520,7 +520,7 @@ exports.reserveBed = async (req, res) => {
       (r) =>
         r.bedType === bedType &&
         r.reservedBy.toString() === userId.toString() &&
-        new Date(r.reservedUntil) > new Date()
+        new Date(r.reservedUntil) > new Date(),
     );
 
     if (existingReservation) {
@@ -582,7 +582,7 @@ exports.getHospitalDashboard = async (req, res) => {
       availableBeds: bedData?.availableBeds || 0,
       totalFundRequests: fundRequests.length,
       activeFundRequests: fundRequests.filter(
-        (req) => req.status === "Pending" || req.status === "Approved"
+        (req) => req.status === "Pending" || req.status === "Approved",
       ).length,
       totalAmbulances: ambulances.length,
       approvedAmbulances: ambulances.filter((amb) => amb.isApproved).length,
@@ -632,7 +632,6 @@ exports.updateHospitalProfile = async (req, res) => {
 
     if (!hospital) {
       return res.status(404).json({
-        success: false,
         message: "Hospital not found",
       });
     }

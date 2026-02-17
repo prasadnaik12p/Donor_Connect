@@ -3,7 +3,7 @@ const router = express.Router();
 const { auth } = require("../middleware/auth");
 const notificationController = require("../controllers/notificationController");
 
-// 🔔 Notification routes
+// Notification routes
 router.get("/", auth, notificationController.getUserNotifications);
 router.get("/unread-count", auth, notificationController.getUnreadCount);
 router.put("/:id/read", auth, notificationController.markAsRead);

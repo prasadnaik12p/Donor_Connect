@@ -10,17 +10,12 @@ exports.registerAdmin = async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
-    // Check if admin already exists
     if (email === process.env.ADMIN_EMAIL) {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
-    // In production, you might want to use a different approach for admin registration
-    // For now, we'll allow registration with secure password hashing
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Update environment variable or use database for multiple admins
-    // For simplicity, we'll just return success
     res.status(201).json({
       message: "Admin registration successful",
       admin: {
@@ -39,15 +34,13 @@ exports.loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // For demo purposes, using environment variables
-    // In production, use a proper admin model
     if (email !== process.env.ADMIN_EMAIL) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(
       password,
-      process.env.ADMIN_PASSWORD_HASH
+      process.env.ADMIN_PASSWORD_HASH,
     );
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -58,7 +51,7 @@ exports.loginAdmin = async (req, res) => {
       process.env.JWT_SECRET,
       {
         expiresIn: "7d",
-      }
+      },
     );
 
     res.json({
@@ -135,8 +128,6 @@ exports.getAllData = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
-// ... (keep all the existing functions from previous adminController)
 
 exports.getPendingHospitals = async (req, res) => {
   try {
@@ -242,7 +233,7 @@ exports.getAllFundRequests = async (req, res) => {
   try {
     const fundRequests = await FundRequest.find().populate(
       "hospital",
-      "name city address"
+      "name city address",
     );
     res.json({ fundRequests });
   } catch (err) {
@@ -258,7 +249,6 @@ exports.getAllBloodRequests = async (req, res) => {
       .populate("donor", "name email");
     res.json({ bloodRequests });
   } catch (err) {
-    console.error("Error fetching blood requests:", err);
     res.status(500).json({
       message: "Server error fetching blood requests",
       error: err.message,

@@ -15,7 +15,7 @@ const {
 // Public routes
 router.post("/register", register);
 router.get("/verify-email", verifyEmail);
-router.post("/resend-verification", resendVerification); // Add this line
+router.post("/resend-verification", resendVerification); 
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);

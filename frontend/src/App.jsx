@@ -26,6 +26,7 @@ import NotificationInbox from "./components/NotificationInbox";
 import NotificationBell from "./components/NotificationBell";
 import DonorRegistration from "./components/DonorRegistration";
 import VerifyEmail from "./components/VerifyEmail";
+import Footer from "./components/Footer";
 
 axios.defaults.baseURL = "http://localhost:5000/api";
 
@@ -193,7 +194,7 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navbar
           user={user}
           hospital={hospital}
@@ -339,6 +340,7 @@ function App() {
           />
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Routes>
+        <Footer />
       </div>
     </Router>
   );

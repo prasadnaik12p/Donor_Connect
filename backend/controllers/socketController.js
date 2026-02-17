@@ -9,17 +9,17 @@ const activeEmergencies = new Map();
 
 const socketController = (io) => {
   io.on("connection", (socket) => {
-    console.log("🔌 User connected:", socket.id);
+    console.log(" User connected:", socket.id);
 
     // User joins
     socket.on("user-join", (userId) => {
       connectedUsers.set(userId, socket.id);
       socket.userId = userId;
       socket.join(`user-${userId}`);
-      console.log(`👤 User ${userId} joined`);
+      console.log(` User ${userId} joined`);
     });
 
-    // ✅ NEW: Donor joins blood donation room
+    //  NEW: Donor joins blood donation room
     socket.on("donor-join", async (userId) => {
       try {
         socket.userId = userId;
@@ -30,7 +30,7 @@ const socketController = (io) => {
           io.sockets.adapter.rooms.get("blood-donors")?.size || 0;
 
         console.log(
-          `💉 Donor ${userId} joined blood-donors room (${bloodDonorsCount} donors online)`,
+          ` Donor ${userId} joined blood-donors room (${bloodDonorsCount} donors online)`,
         );
 
         // Notify donor of successful connection
@@ -54,11 +54,11 @@ const socketController = (io) => {
       }
     });
 
-    // ✅ NEW: Handle blood donation request acceptance
+    // Handle blood donation request acceptance
     socket.on("accept-blood-request", async (data) => {
       try {
         const { requestId, donorId } = data;
-        console.log(`💉 Donor ${donorId} accepting blood request ${requestId}`);
+        console.log(` Donor ${donorId} accepting blood request ${requestId}`);
 
         socket.to("blood-donors").emit("blood-request-taken", {
           requestId: requestId,
@@ -70,17 +70,17 @@ const socketController = (io) => {
       }
     });
 
-    // ✅ NEW: Update donor status (available, busy, offline)
+    //  Update donor status (available, busy, offline)
     socket.on("update-donor-status", async (data) => {
       try {
         const { userId, newStatus } = data;
 
         if (newStatus === "available") {
           socket.join("blood-donors");
-          console.log(`💚 Donor ${userId} is now AVAILABLE`);
+          console.log(` Donor ${userId} is now AVAILABLE`);
         } else {
           socket.leave("blood-donors");
-          console.log(`⚠️ Donor ${userId} status changed to ${newStatus}`);
+          console.log(` Donor ${userId} status changed to ${newStatus}`);
         }
 
         // Notify the donor
@@ -107,16 +107,14 @@ const socketController = (io) => {
           socket.join(`ambulance-${ambulanceId}`);
           connectedAmbulances.set(ambulanceId, socket.id);
 
-          // ✅ FIXED: Only join emergency-room if status is AVAILABLE
-          // Don't change the ambulance status - keep their current status
           if (ambulance.status === "available") {
             socket.join("emergency-room");
             console.log(
-              `✅ Ambulance ${ambulanceId} (${ambulance.name}) is AVAILABLE - joined emergency room for requests`,
+              ` Ambulance ${ambulanceId} (${ambulance.name}) is AVAILABLE - joined emergency room for requests`,
             );
           } else {
             console.log(
-              `⚠️ Ambulance ${ambulanceId} (${ambulance.name}) status: ${ambulance.status} - NOT receiving requests`,
+              ` Ambulance ${ambulanceId} (${ambulance.name}) status: ${ambulance.status} - NOT receiving requests`,
             );
           }
 
@@ -146,7 +144,7 @@ const socketController = (io) => {
           }
         } else {
           console.warn(
-            `⚠️ Ambulance ${ambulanceId} rejected: ${!ambulance ? "not found" : "not approved"}`,
+            ` Ambulance ${ambulanceId} rejected: ${!ambulance ? "not found" : "not approved"}`,
           );
           socket.emit("connection-error", {
             message: "Ambulance not approved or not found",
@@ -182,7 +180,7 @@ const socketController = (io) => {
         // Store emergency
         activeEmergencies.set(emergencyId, enhancedEmergencyData);
 
-        console.log("🚨 New emergency request:", {
+        console.log(" New emergency request:", {
           emergencyId,
           userName: user.name,
           location: emergencyData.location,
@@ -254,8 +252,6 @@ const socketController = (io) => {
         // Remove emergency from active list (if using in-memory)
         activeEmergencies.delete(emergencyId);
 
-        // 🔴 CRITICAL: Notify all OTHER ambulances that this emergency is TAKEN
-        // They should remove it from their list immediately
         socket.to("emergency-room").emit("emergency-taken", {
           emergencyId,
           ambulanceId,
@@ -285,7 +281,7 @@ const socketController = (io) => {
         });
 
         console.log(
-          `✅ Ambulance ${ambulanceId} accepted emergency ${emergencyId}`,
+          ` Ambulance ${ambulanceId} accepted emergency ${emergencyId}`,
         );
       } catch (error) {
         console.error("Error accepting emergency:", error);
@@ -326,24 +322,24 @@ const socketController = (io) => {
           ambulance.status = "available";
           await ambulance.save();
 
-          // ✅ FIXED: Join emergency room when status changes to available
+          //  FIXED: Join emergency room when status changes to available
           socket.join("emergency-room");
           console.log(
-            `✅ Ambulance ${ambulanceId} is now AVAILABLE - joined emergency room`,
+            ` Ambulance ${ambulanceId} is now AVAILABLE - joined emergency room`,
           );
 
           socket.emit("emergency-completed", {
             message: "Emergency completed successfully",
           });
 
-          console.log(`🏁 Ambulance ${ambulanceId} completed emergency`);
+          console.log(` Ambulance ${ambulanceId} completed emergency`);
         }
       } catch (error) {
         console.error("Error completing emergency:", error);
       }
     });
 
-    // ✅ NEW: Handle ambulance status updates
+    //  Handle ambulance status updates
     socket.on("update-ambulance-status", async (data) => {
       try {
         const { ambulanceId, newStatus } = data;
@@ -355,19 +351,19 @@ const socketController = (io) => {
           await ambulance.save();
 
           console.log(
-            `🔄 Ambulance ${ambulanceId} status changed: ${oldStatus} → ${newStatus}`,
+            ` Ambulance ${ambulanceId} status changed: ${oldStatus} → ${newStatus}`,
           );
 
-          // ✅ FIXED: Manage emergency-room room membership based on status
+          //  Manage emergency-room room membership based on status
           if (newStatus === "available") {
             socket.join("emergency-room");
             console.log(
-              `✅ Ambulance ${ambulanceId} status is now AVAILABLE - joined emergency room`,
+              ` Ambulance ${ambulanceId} status is now AVAILABLE - joined emergency room`,
             );
           } else {
             socket.leave("emergency-room");
             console.log(
-              `⛔ Ambulance ${ambulanceId} status is now ${newStatus} - left emergency room`,
+              ` Ambulance ${ambulanceId} status is now ${newStatus} - left emergency room`,
             );
           }
 
@@ -408,17 +404,15 @@ const socketController = (io) => {
         try {
           const ambulance = await Ambulance.findById(socket.ambulanceId);
           if (ambulance) {
-            // ✅ FIXED: Only set to offline if currently available
-            // Don't change status if already onDuty (handling an emergency)
             if (ambulance.status === "available") {
               ambulance.status = "offline";
               await ambulance.save();
               console.log(
-                `🚑 Ambulance ${socket.ambulanceId} set to OFFLINE (was available)`,
+                ` Ambulance ${socket.ambulanceId} set to OFFLINE (was available)`,
               );
             } else {
               console.log(
-                `ℹ️ Ambulance ${socket.ambulanceId} disconnected but status remains ${ambulance.status}`,
+                ` Ambulance ${socket.ambulanceId} disconnected but status remains ${ambulance.status}`,
               );
             }
           }
@@ -448,7 +442,7 @@ const socketController = (io) => {
         // 2 minutes expiry
         activeEmergencies.delete(emergencyId);
         io.to("emergency-room").emit("emergency-expired", { emergencyId });
-        console.log(`🕐 Emergency ${emergencyId} expired`);
+        console.log(` Emergency ${emergencyId} expired`);
       }
     }
   }, 30000); // Check every 30 seconds

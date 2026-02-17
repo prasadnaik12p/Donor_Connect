@@ -41,49 +41,54 @@ const Register = () => {
   const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-pink-50 to-orange-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 flex flex-col justify-center py-6 sm:py-8 md:py-12 px-3 sm:px-4 lg:px-8">
       {/* Background Animation */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-500/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-40 left-40 w-80 h-80 bg-purple-500/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
       </div>
 
       <div className="relative">
         {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-red-500 to-pink-600 rounded-3xl shadow-2xl mb-6 transform hover:scale-105 transition-all duration-300">
-            <span className="text-4xl text-white">❤️</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 rounded-3xl shadow-2xl mb-4 sm:mb-6 transform hover:scale-105 transition-all duration-300 animate-pulse">
+            <span className="text-3xl sm:text-4xl text-white">❤️</span>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent mb-4">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-red-400 via-pink-400 to-purple-400 bg-clip-text text-transparent mb-3 sm:mb-4 px-2">
             Join Donor Connect
           </h1>
-          <p className="text-gray-600 text-lg max-w-md mx-auto">
+          <p className="text-gray-700 text-base sm:text-lg max-w-md mx-auto px-2">
             Create your account and become part of our life-saving community
           </p>
         </div>
 
         {/* Registration Card */}
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden transform hover:shadow-3xl transition-all duration-500">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden transform hover:shadow-3xl transition-all duration-500">
             {/* Card Header */}
-            <div className="bg-gradient-to-r from-red-500 to-pink-600 px-8 py-6 text-white">
+            <div className="bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 px-4 sm:px-6 md:px-8 py-4 sm:py-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">Create Account</h2>
-                  <p className="text-red-100 text-sm mt-1">
+                  <h2 className="text-xl sm:text-2xl font-bold">
+                    Create Account
+                  </h2>
+                  <p className="text-purple-100 text-xs sm:text-sm mt-1">
                     Start your journey to save lives
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                  <span className="text-xl">🚀</span>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <span className="text-lg sm:text-xl">🚀</span>
                 </div>
               </div>
             </div>
 
             {/* Form Section */}
-            <div className="px-8 py-8">
-              <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
+            <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8">
+              <form
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6"
+                onSubmit={handleSubmit}
+              >
                 {/* Personal Information Column */}
                 <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
@@ -93,7 +98,10 @@ const Register = () => {
 
                   {/* Name Field */}
                   <div className="space-y-2">
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="name"
+                      className="block text-sm font-semibold text-gray-700"
+                    >
                       Full Name *
                     </label>
                     <div className="relative">
@@ -115,7 +123,10 @@ const Register = () => {
 
                   {/* Email Field */}
                   <div className="space-y-2">
-                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-semibold text-gray-700"
+                    >
                       Email Address *
                     </label>
                     <div className="relative">
@@ -138,7 +149,10 @@ const Register = () => {
 
                   {/* Phone Field */}
                   <div className="space-y-2">
-                    <label htmlFor="phone" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="phone"
+                      className="block text-sm font-semibold text-gray-700"
+                    >
                       Phone Number *
                     </label>
                     <div className="relative">
@@ -168,7 +182,10 @@ const Register = () => {
 
                   {/* Password Field */}
                   <div className="space-y-2">
-                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-semibold text-gray-700"
+                    >
                       Password *
                     </label>
                     <div className="relative">
@@ -188,28 +205,43 @@ const Register = () => {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
                       >
-                        {showPassword ? '🙈' : '👁️'}
+                        {showPassword ? "🙈" : "👁️"}
                       </button>
                     </div>
                   </div>
 
                   {/* Role Selection */}
                   <div className="space-y-2">
-                    <label htmlFor="role" className="block text-sm font-semibold text-gray-700">
+                    <label
+                      htmlFor="role"
+                      className="block text-sm font-semibold text-gray-700"
+                    >
                       I want to join as *
                     </label>
                     <div className="grid grid-cols-1 gap-3">
                       {[
-                        { value: 'donor', label: '🩸 Donor', description: 'Donate blood and Fund save lives' },
-                        { value: 'recipient', label: '🏥 User', description: 'Request  donations' },
-                        { value: 'user', label: '🤝 Supporter', description: 'Support the community' }
+                        {
+                          value: "donor",
+                          label: "🩸 Donor",
+                          description: "Donate blood and Fund save lives",
+                        },
+                        {
+                          value: "recipient",
+                          label: "🏥 User",
+                          description: "Request  donations",
+                        },
+                        {
+                          value: "user",
+                          label: "🤝 Supporter",
+                          description: "Support the community",
+                        },
                       ].map((option) => (
                         <label
                           key={option.value}
                           className={`flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 ${
                             formData.role === option.value
-                              ? 'border-red-500 bg-red-50'
-                              : 'border-gray-200 hover:border-red-300'
+                              ? "border-red-500 bg-red-50"
+                              : "border-gray-200 hover:border-red-300"
                           }`}
                         >
                           <input
@@ -221,18 +253,24 @@ const Register = () => {
                             className="hidden"
                           />
                           <div className="flex items-center space-x-3 flex-1">
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                              formData.role === option.value
-                                ? 'border-red-500 bg-red-500'
-                                : 'border-gray-300'
-                            }`}>
+                            <div
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                                formData.role === option.value
+                                  ? "border-red-500 bg-red-500"
+                                  : "border-gray-300"
+                              }`}
+                            >
                               {formData.role === option.value && (
                                 <div className="w-2 h-2 bg-white rounded-full"></div>
                               )}
                             </div>
                             <div>
-                              <div className="font-medium text-gray-900">{option.label}</div>
-                              <div className="text-sm text-gray-500">{option.description}</div>
+                              <div className="font-medium text-gray-900">
+                                {option.label}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {option.description}
+                              </div>
                             </div>
                           </div>
                         </label>
@@ -241,9 +279,12 @@ const Register = () => {
                   </div>
 
                   {/* Blood Type Selection (Conditional) */}
-                  {formData.role === 'donor' && (
+                  {formData.role === "donor" && (
                     <div className="space-y-2">
-                      <label htmlFor="bloodType" className="block text-sm font-semibold text-gray-700">
+                      <label
+                        htmlFor="bloodType"
+                        className="block text-sm font-semibold text-gray-700"
+                      >
                         Your Blood Type
                       </label>
                       <div className="relative">
@@ -255,8 +296,10 @@ const Register = () => {
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 text-gray-700 appearance-none"
                         >
                           <option value="">Select your blood type</option>
-                          {bloodTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
+                          {bloodTypes.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
                           ))}
                         </select>
                         <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -291,9 +334,9 @@ const Register = () => {
                 {/* Login Link */}
                 <div className="md:col-span-2 text-center pt-4">
                   <p className="text-gray-600 text-sm">
-                    Already have an account?{' '}
-                    <Link 
-                      to="/login" 
+                    Already have an account?{" "}
+                    <Link
+                      to="/login"
                       className="font-semibold text-red-600 hover:text-red-700 transition-colors duration-300 hover:underline"
                     >
                       Sign in here
@@ -306,7 +349,9 @@ const Register = () => {
             {/* Features Footer */}
             <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
               <div className="text-center">
-                <p className="text-gray-600 text-sm mb-4">Why join Donor Connect?</p>
+                <p className="text-gray-600 text-sm mb-4">
+                  Why join Donor Connect?
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <span className="text-red-500">🩸</span>
@@ -330,10 +375,18 @@ const Register = () => {
       {/* Custom Animations */}
       <style jsx>{`
         @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
         }
         .animate-blob {
           animation: blob 7s infinite;
@@ -346,7 +399,7 @@ const Register = () => {
         }
       `}</style>
     </div>
-  )
+  );
 }
 
 export default Register

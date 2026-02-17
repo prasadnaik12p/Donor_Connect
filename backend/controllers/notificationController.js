@@ -1,6 +1,6 @@
 const Notification = require("../models/Notification");
 
-// 🔔 Get user notifications
+// Get user notifications
 exports.getUserNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -24,7 +24,7 @@ exports.getUserNotifications = async (req, res) => {
   }
 };
 
-// 📌 Mark notification as read
+//  Mark notification as read
 exports.markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,7 +53,7 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// 📌 Mark all notifications as read
+//  Mark all notifications as read
 exports.markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -76,7 +76,7 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
-// 🗑️ Delete notification
+// Delete notification
 exports.deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
@@ -100,7 +100,7 @@ exports.deleteNotification = async (req, res) => {
   }
 };
 
-// 🗑️ Clear all notifications
+//  Clear all notifications
 exports.clearAllNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -120,7 +120,7 @@ exports.clearAllNotifications = async (req, res) => {
   }
 };
 
-// 🔢 Get unread notification count
+//  Get unread notification count
 exports.getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.id;

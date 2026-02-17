@@ -8,6 +8,9 @@ export default {
         primary: "#dc2626",
         secondary: "#2563eb",
       },
+      screens: {
+        xs: "475px",
+      },
     },
   },
   plugins: [],

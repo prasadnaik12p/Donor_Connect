@@ -6,11 +6,11 @@ const User = require("../models/User");
 exports.getNearbyEmergencies = async (req, res) => {
   try {
     const { lat, lng, radius = 10, ambulanceId } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({
         success: false,
-        message: "Location coordinates are required"
+        message: "Location coordinates are required",
       });
     }
 
@@ -20,35 +20,36 @@ exports.getNearbyEmergencies = async (req, res) => {
 
     // Find emergencies within radius that are not assigned
     const emergencies = await Emergency.find({
-      status: 'pending',
+      status: "pending",
       location: {
         $near: {
           $geometry: {
             type: "Point",
-            coordinates: [longitude, latitude]
+            coordinates: [longitude, latitude],
           },
-          $maxDistance: maxDistance
-        }
-      }
-    }).sort({ createdAt: -1 }).populate("userId");
-    console.log("emergencies ",emergencies);
-    
+          $maxDistance: maxDistance,
+        },
+      },
+    })
+      .sort({ createdAt: -1 })
+      .populate("userId");
+    console.log("emergencies ", emergencies);
+
     // Filter out emergencies that might have been assigned but not updated yet
-    const availableEmergencies = emergencies.filter(emergency => 
-      !emergency.assignedAmbulance
+    const availableEmergencies = emergencies.filter(
+      (emergency) => !emergency.assignedAmbulance,
     );
 
     res.json({
       success: true,
       emergencies: availableEmergencies,
-      count: availableEmergencies.length
+      count: availableEmergencies.length,
     });
   } catch (error) {
-    console.error("Error getting nearby emergencies:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -93,7 +94,7 @@ exports.acceptEmergency = async (req, res) => {
     ambulance.assignedUser = emergency.userId;
     await ambulance.save();
 
-    // 🚨 EMIT REAL-TIME EVENT: Notify all other ambulances that this emergency is taken
+    //  EMIT REAL-TIME EVENT: Notify all other ambulances that this emergency is taken
     if (io) {
       io.to("emergency-room").emit("emergency-taken", {
         emergencyId: emergency._id,
@@ -122,7 +123,6 @@ exports.acceptEmergency = async (req, res) => {
       ambulance,
     });
   } catch (error) {
-    console.error("Error accepting emergency:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -154,17 +154,13 @@ exports.createEmergency = async (req, res) => {
     // Populate user details for the response
     const populatedEmergency = await emergency.populate("userId", "name phone");
 
-    // 🚨 EMIT REAL-TIME EVENT: Broadcast new emergency ONLY to AVAILABLE ambulances
+    // EMIT REAL-TIME EVENT: Broadcast new emergency ONLY to AVAILABLE ambulances
     if (io) {
-      // ✅ FIXED: Query database for ONLY available ambulances
+      // FIXED: Query database for ONLY available ambulances
       const availableAmbulances = await Ambulance.find({
         status: "available",
         isApproved: true,
       });
-
-      console.log(
-        `📢 Broadcasting new emergency to ${availableAmbulances.length} AVAILABLE ambulance(s)`,
-      );
 
       // Only send to ambulances with "available" status
       availableAmbulances.forEach((ambulance) => {
@@ -194,7 +190,7 @@ exports.createEmergency = async (req, res) => {
         message: `New emergency request at ${location}`,
       });
     } else {
-      console.error("❌ Socket.io not available for broadcasting emergency");
+      console.error("Socket.io not available for broadcasting emergency");
     }
 
     res.status(201).json({
@@ -203,7 +199,6 @@ exports.createEmergency = async (req, res) => {
       emergency: populatedEmergency,
     });
   } catch (error) {
-    console.error("Error creating emergency:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -216,27 +211,28 @@ exports.createEmergency = async (req, res) => {
 exports.getEmergencyStatus = async (req, res) => {
   try {
     const { emergencyId } = req.params;
-    
-    const emergency = await Emergency.findById(emergencyId)
-      .populate('assignedAmbulance', 'name driverName phone');
-    
+
+    const emergency = await Emergency.findById(emergencyId).populate(
+      "assignedAmbulance",
+      "name driverName phone",
+    );
+
     if (!emergency) {
       return res.status(404).json({
         success: false,
-        message: "Emergency not found"
+        message: "Emergency not found",
       });
     }
 
     res.json({
       success: true,
-      emergency
+      emergency,
     });
   } catch (error) {
-    console.error("Error getting emergency status:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };

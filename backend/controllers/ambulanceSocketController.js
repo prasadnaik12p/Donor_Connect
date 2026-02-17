@@ -2,11 +2,8 @@ const Ambulance = require("../models/Ambulance");
 
 const ambulanceSocketController = (io) => {
   io.on("connection", (socket) => {
-    console.log("🟢 New client connected:", socket.id);
-
     socket.on("registerAmbulance", (ambulanceId) => {
       socket.join(ambulanceId);
-      console.log(`🚑 Ambulance ${ambulanceId} joined WebSocket`);
     });
 
     socket.on("emergencyTriggered", async ({ userId, location }) => {
@@ -15,14 +12,20 @@ const ambulanceSocketController = (io) => {
         isApproved: true,
         location: {
           $near: {
-            $geometry: { type: "Point", coordinates: [location.lng, location.lat] },
+            $geometry: {
+              type: "Point",
+              coordinates: [location.lng, location.lat],
+            },
             $maxDistance: 5000,
           },
         },
       });
 
       nearby.forEach((amb) => {
-        io.to(amb._id.toString()).emit("emergencyRequest", { userId, userLocation: location });
+        io.to(amb._id.toString()).emit("emergencyRequest", {
+          userId,
+          userLocation: location,
+        });
       });
     });
 
@@ -44,11 +47,13 @@ const ambulanceSocketController = (io) => {
     });
 
     socket.on("updateLocation", ({ id, coordinates, type }) => {
-      if (type === "ambulance") io.to(id).emit("locationUpdate", { type, coordinates });
-      if (type === "user") io.to(id).emit("locationUpdate", { type, coordinates });
+      if (type === "ambulance")
+        io.to(id).emit("locationUpdate", { type, coordinates });
+      if (type === "user")
+        io.to(id).emit("locationUpdate", { type, coordinates });
     });
 
-    socket.on("disconnect", () => console.log("🔴 Client disconnected:", socket.id));
+    socket.on("disconnect", () => {});
   });
 };
 

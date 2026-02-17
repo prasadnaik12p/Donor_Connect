@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import socketService from "../utils/socketService";
 
-// Google Maps component using Embed API (No API key required for basic functionality)
+
 const EmergencyMap = ({
   origin,
   destination,
@@ -28,7 +28,7 @@ const EmergencyMap = ({
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const approxDistance = R * c;
-    const approxTime = (approxDistance / 40) * 60; // Assuming 40 km/h average speed
+    const approxTime = (approxDistance / 40) * 60;
 
     return {
       distance: `${approxDistance.toFixed(1)} km`,
@@ -374,19 +374,19 @@ const AmbulanceDashboard = () => {
   const setupSocketListeners = () => {
     // Listen for new emergencies
     socketService.onNewEmergency((emergency) => {
-      console.log("🚨 New emergency received:", emergency);
-      console.log("📊 Current ambulance status:", status);
+      // console.log("New emergency received:", emergency);
+      // console.log("Current ambulance status:", status);
 
-      // ✅ FIXED: Only show popup if ambulance is AVAILABLE
+      // Only show popup if ambulance is AVAILABLE
       setEmergencies((prev) => {
         const exists = prev.some((e) => e._id === emergency._id);
         if (exists) return prev;
 
         const newEmergencies = [emergency, ...prev];
 
-        // Show modal ONLY if ambulance is available, NOT if offline or onDuty
+        // Show modal ONLY if ambulance is available,
         if (status === "available") {
-          console.log("✅ Ambulance is AVAILABLE - showing emergency popup");
+          console.log("Ambulance is AVAILABLE - showing emergency popup");
           setCurrentEmergency(emergency);
           setShowEmergencyModal(true);
 
@@ -410,8 +410,6 @@ const AmbulanceDashboard = () => {
 
     // Listen for emergency taken by another ambulance
     socketService.onEmergencyTaken((data) => {
-      console.log("❌ Emergency taken by another ambulance:", data);
-
       // Remove from emergencies list
       setEmergencies((prev) => prev.filter((e) => e._id !== data.emergencyId));
 
@@ -430,8 +428,6 @@ const AmbulanceDashboard = () => {
 
     // Listen for emergency accepted confirmation
     socketService.onEmergencyAcceptedConfirm((data) => {
-      console.log("✅ Emergency accepted:", data);
-
       setAssignedEmergency({
         _id: data.emergencyId,
         location: data.userLocation,
@@ -751,9 +747,7 @@ const AmbulanceDashboard = () => {
   };
 
   const getEmergencyCoordinates = (emergency) => {
-    // Use REAL coordinates from your Emergency schema
     if (emergency.coordinates && emergency.coordinates.coordinates) {
-      // Your schema uses: coordinates: { type: "Point", coordinates: [longitude, latitude] }
       const [longitude, latitude] = emergency.coordinates.coordinates;
       return {
         lat: latitude,
@@ -761,8 +755,6 @@ const AmbulanceDashboard = () => {
       };
     }
 
-    // Fallback: If no coordinates in emergency data, use realistic demo coordinates
-    // This ensures different coordinates from ambulance location
     const demoLocations = [
       { lat: 12.9512, lng: 77.6256 }, // Different location 1
       { lat: 12.9618, lng: 77.6152 }, // Different location 2
@@ -784,7 +776,7 @@ const AmbulanceDashboard = () => {
       return;
     }
 
-    // ✅ NEW: Check if ambulance is available
+    //  Check if ambulance is available
     if (status !== "available") {
       addAlert({
         type: "error",
@@ -828,12 +820,6 @@ const AmbulanceDashboard = () => {
         return;
       }
 
-      console.log(
-        "📤 Sending accept request with token:",
-        token.substring(0, 20) + "...",
-      );
-      console.log("📤 Ambulance ID:", ambulance.id);
-
       const response = await fetch(
         `${API_BASE}/ambulances/emergencies/accept`,
         {
@@ -848,14 +834,11 @@ const AmbulanceDashboard = () => {
         },
       );
 
-      console.log("📥 Response status:", response.status);
-      console.log("📥 Response ok:", response.ok);
-
       let data;
       try {
         data = await response.json();
       } catch (parseError) {
-        console.error("❌ Failed to parse JSON response:", parseError);
+        console.error(" Failed to parse JSON response:", parseError);
         addAlert({
           type: "error",
           message: "Server error - invalid response format",
@@ -864,8 +847,6 @@ const AmbulanceDashboard = () => {
         return;
       }
 
-      console.log("📥 Response data:", data);
-
       if (response.ok && data.success) {
         addAlert({
           type: "success",
@@ -873,10 +854,10 @@ const AmbulanceDashboard = () => {
           timestamp: new Date(),
         });
 
-        // 🚨 EMIT SOCKET EVENT: Tell all other ambulances this emergency is taken
+        // EMIT SOCKET EVENT: Tell all other ambulances this emergency is taken
         socketService.acceptEmergency(emergency._id, ambulance.id);
 
-        // ✅ NEW: Update ambulance status to "onDuty" in socket
+        //  Update ambulance status to "onDuty" in socket
         // This will remove the ambulance from emergency-room for receiving new requests
         const socket = socketService.getSocket();
         if (socket) {
@@ -884,7 +865,7 @@ const AmbulanceDashboard = () => {
             ambulanceId: ambulance.id,
             newStatus: "onDuty",
           });
-          console.log("📡 Emitted ambulance status update to onDuty");
+          console.log("Emitted ambulance status update to onDuty");
         }
 
         setEmergencies((prev) => prev.filter((e) => e._id !== emergency._id));
@@ -899,7 +880,7 @@ const AmbulanceDashboard = () => {
 
         fetchDashboardData();
       } else if (response.status === 401) {
-        console.warn("⚠️ Unauthorized - token might be expired");
+        console.warn(" Unauthorized - token might be expired");
         // Token might be expired or invalid
         localStorage.removeItem("ambulanceToken");
         localStorage.removeItem("ambulance");
@@ -912,8 +893,8 @@ const AmbulanceDashboard = () => {
         setAcceptingEmergency(false);
       } else if (response.status === 409) {
         console.warn("⚠️ Conflict detected - Emergency already taken");
-        console.log("📥 Conflict response code:", data.code);
-        console.log("📥 Conflict response message:", data.message);
+        console.log("Conflict response code:", data.code);
+        console.log("Conflict response message:", data.message);
         // Emergency already taken by another driver
         if (data.code === "ALREADY_ACCEPTED") {
           console.log("✓ Showing ALREADY_ACCEPTED alert");
@@ -1033,7 +1014,7 @@ const AmbulanceDashboard = () => {
           timestamp: new Date(),
         });
 
-        // ✅ NEW: Update ambulance status back to "available"
+        //  Update ambulance status back to "available"
         const ambulance = JSON.parse(localStorage.getItem("ambulance"));
         const socket = socketService.getSocket();
         if (socket && ambulance) {
@@ -1041,7 +1022,7 @@ const AmbulanceDashboard = () => {
             ambulanceId: ambulance.id,
             newStatus: "available",
           });
-          console.log("📡 Emitted ambulance status update to available");
+          console.log("Emitted ambulance status update to available");
         }
 
         setAssignedEmergency(null);
@@ -1854,7 +1835,7 @@ const AmbulanceDashboard = () => {
                         value={manualCoordinates}
                         onChange={(e) => setManualCoordinates(e.target.value)}
                         placeholder="Enter coordinates: latitude longitude (e.g., 12.9716 77.5946)"
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-mono"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-mono bg-white text-gray-900 placeholder-gray-400"
                       />
                       <button
                         onClick={updateLocationWithCoordinates}

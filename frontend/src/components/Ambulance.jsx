@@ -23,13 +23,13 @@ const Ambulance = ({ user }) => {
       getCurrentLocation();
     }
 
-    // 🔴 CONNECT TO WEBSOCKET for real-time updates
+    // CONNECT TO WEBSOCKET for real-time updates
     if (user?.id) {
       socketService.connect(user.id);
 
       // Listen for emergency accepted event
       socketService.onEmergencyAccepted((data) => {
-        console.log("✅ Emergency accepted by ambulance:", data);
+        console.log(" Emergency accepted by ambulance:", data);
         setEmergencyStatus("assigned");
         setSelectedAmbulance({
           id: data.ambulanceId,
@@ -220,7 +220,7 @@ const Ambulance = ({ user }) => {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
     } catch (error) {
-      console.log("Audio not supported");
+      console.error("Audio not supported", error);
     }
   };
 
@@ -492,37 +492,39 @@ We apologize for the inconvenience.
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 py-4 sm:py-6 md:py-8 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-lg mb-4">
-            <span className="text-4xl">🚑</span>
+        <div className="text-center mb-6 sm:mb-8 md:mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 rounded-2xl shadow-xl mb-3 sm:mb-4 animate-pulse">
+            <span className="text-3xl sm:text-4xl">🚑</span>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-2 sm:mb-3">
             Emergency Ambulance Services
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto px-2">
             Quick access to nearby ambulances and emergency medical assistance
           </p>
         </div>
 
         {/* Emergency Alert Section */}
-        <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl shadow-xl p-8 mb-8 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-6 sm:mb-8 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -mr-16 -mt-16"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full -ml-12 -mb-12"></div>
 
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-3xl font-bold mb-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-3">
+              <div className="text-center sm:text-left">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">
                   Emergency Assistance
                 </h2>
-                <p className="text-red-100 text-lg">
+                <p className="text-red-100 text-sm sm:text-base md:text-lg break-all">
                   <strong>Current Location:</strong> {getLocationDisplay()}
                 </p>
               </div>
-              <div className="text-6xl animate-pulse">🚨</div>
+              <div className="text-4xl sm:text-5xl md:text-6xl animate-pulse">
+                🚨
+              </div>
             </div>
 
             {emergencyCreated && currentEmergency && (
@@ -539,7 +541,7 @@ We apologize for the inconvenience.
                             : "bg-blue-400"
                     }`}
                   ></div>
-                  <p className="font-semibold">
+                  <p className="font-semibold text-red-700">
                     {emergencyStatus === "searching"
                       ? "🔍 Searching for available ambulances..."
                       : emergencyStatus === "assigned"
@@ -549,7 +551,7 @@ We apologize for the inconvenience.
                           : "🕒 Waiting for ambulance response..."}
                   </p>
                 </div>
-                <p className="text-red-100 text-sm mb-2">
+                <p className="text-red-900 text-sm mb-2">
                   ID: {currentEmergency._id}
                   {emergencyStatus === "assigned" &&
                     currentEmergency.assignedAmbulance && (
@@ -586,7 +588,7 @@ We apologize for the inconvenience.
                 (searchType === "manual" && !manualCity.trim()) ||
                 (searchType === "coordinates" && !manualCoordinates.trim())
               }
-              className="bg-white text-red-600 px-12 py-4 rounded-xl text-xl font-bold hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-white focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-2xl w-full md:w-auto"
+              className="bg-white text-red-600 px-6 sm:px-8 md:px-12 py-3 sm:py-4 rounded-xl text-base sm:text-lg md:text-xl font-bold hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-white focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-2xl w-full md:w-auto"
             >
               {emergencyLoading ? (
                 <div className="flex items-center space-x-3">
@@ -614,13 +616,13 @@ We apologize for the inconvenience.
         </div>
 
         {/* Search Options */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
             Find Ambulances
           </h2>
 
           {/* Search Type Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
             {[
               {
                 type: "auto",
@@ -654,15 +656,21 @@ We apologize for the inconvenience.
               <button
                 key={option.type}
                 onClick={() => handleSearchTypeChange(option.type)}
-                className={`p-6 rounded-xl border-2 text-left transition-all duration-300 transform hover:scale-105 ${
+                className={`p-4 sm:p-5 md:p-6 rounded-xl border-2 text-left transition-all duration-300 transform hover:scale-105 ${
                   searchType === option.type
                     ? `border-${option.color}-500 bg-${option.color}-50 text-${option.color}-700 shadow-lg`
                     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:shadow-md"
                 }`}
               >
-                <div className="text-3xl mb-3">{option.icon}</div>
-                <div className="font-semibold text-lg mb-1">{option.title}</div>
-                <div className="text-gray-600 text-sm">{option.desc}</div>
+                <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">
+                  {option.icon}
+                </div>
+                <div className="font-semibold text-base sm:text-lg mb-1">
+                  {option.title}
+                </div>
+                <div className="text-gray-600 text-xs sm:text-sm">
+                  {option.desc}
+                </div>
               </button>
             ))}
           </div>
@@ -670,14 +678,14 @@ We apologize for the inconvenience.
           {/* Location Input */}
           <div className="mb-8">
             {searchType === "auto" && (
-              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                  <h3 className="font-semibold text-blue-900 text-lg">
+              <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+                  <h3 className="font-semibold text-blue-900 text-base sm:text-lg">
                     📍 Your Current Location
                   </h3>
                   <button
                     onClick={getCurrentLocation}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+                    className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                   >
                     <span>🔄</span>
                     <span>Refresh Location</span>
@@ -708,22 +716,22 @@ We apologize for the inconvenience.
             )}
 
             {searchType === "manual" && (
-              <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-                <h3 className="font-semibold text-green-900 text-lg mb-4">
+              <div className="bg-green-50 rounded-xl p-4 sm:p-6 border border-green-200">
+                <h3 className="font-semibold text-green-900 text-base sm:text-lg mb-3 sm:mb-4">
                   🏙️ Search by City
                 </h3>
-                <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <input
                     type="text"
                     value={manualCity}
                     onChange={(e) => setManualCity(e.target.value)}
                     placeholder="Enter city name (e.g., Mumbai, Delhi, Bangalore)"
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg"
+                    className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm sm:text-base md:text-lg"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => setManualCity("")}
-                      className="bg-gray-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-gray-700 transition-colors duration-200"
+                      className="bg-gray-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-medium hover:bg-gray-700 transition-colors duration-200 w-full sm:w-auto"
                     >
                       Clear
                     </button>
@@ -733,31 +741,31 @@ We apologize for the inconvenience.
             )}
 
             {searchType === "coordinates" && (
-              <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-purple-900 text-lg">
+              <div className="bg-purple-50 rounded-xl p-4 sm:p-6 border border-purple-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+                  <h3 className="font-semibold text-purple-900 text-base sm:text-lg">
                     🎯 Enter Coordinates
                   </h3>
                   <button
                     onClick={handleCoordinatesExample}
-                    className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors duration-200 text-sm"
+                    className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium hover:bg-purple-700 transition-colors duration-200 w-full sm:w-auto"
                   >
                     Show Example
                   </button>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row gap-4">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <input
                       type="text"
                       value={manualCoordinates}
                       onChange={(e) => setManualCoordinates(e.target.value)}
                       placeholder="Enter coordinates: latitude longitude (e.g., 12.9716 77.5946)"
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-mono"
+                      className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base md:text-lg font-mono"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={() => setManualCoordinates("")}
-                        className="bg-gray-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-gray-700 transition-colors duration-200"
+                        className="bg-gray-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-medium hover:bg-gray-700 transition-colors duration-200 w-full sm:w-auto"
                       >
                         Clear
                       </button>
@@ -794,7 +802,7 @@ We apologize for the inconvenience.
           </div>
 
           {/* Search Controls */}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
             <button
               onClick={fetchNearbyAmbulances}
               disabled={
@@ -802,7 +810,7 @@ We apologize for the inconvenience.
                 (searchType === "manual" && !manualCity.trim()) ||
                 (searchType === "coordinates" && !manualCoordinates.trim())
               }
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2"
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-semibold hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>
@@ -819,7 +827,7 @@ We apologize for the inconvenience.
 
             <button
               onClick={() => setAmbulances([])}
-              className="bg-gray-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-500 transition-all duration-300 transform hover:scale-105"
+              className="bg-gray-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-semibold hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-500 transition-all duration-300 transform hover:scale-105"
             >
               Clear Results
             </button>
@@ -828,14 +836,14 @@ We apologize for the inconvenience.
 
         {/* Results Header */}
         {ambulances.length > 0 && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 mb-8 text-white shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold mb-2">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white shadow-lg">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-center sm:text-left">
+                <h3 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">
                   Found {ambulances.length} Ambulance
                   {ambulances.length !== 1 ? "s" : ""}
                 </h3>
-                <p className="text-green-100">
+                <p className="text-green-100 text-sm sm:text-base">
                   {searchType === "auto" && "Available near your location"}
                   {searchType === "manual" && `Available in ${manualCity}`}
                   {searchType === "coordinates" &&
@@ -843,7 +851,7 @@ We apologize for the inconvenience.
                   {searchType === "all" && "Available across all locations"}
                 </p>
               </div>
-              <div className="text-4xl">🎉</div>
+              <div className="text-3xl sm:text-4xl">🎉</div>
             </div>
             {emergencyCreated && (
               <div className="bg-white bg-opacity-20 rounded-lg p-3 mt-4">
@@ -856,7 +864,7 @@ We apologize for the inconvenience.
         )}
 
         {/* Ambulances Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {ambulances.map((ambulance) => (
             <div
               key={ambulance._id}

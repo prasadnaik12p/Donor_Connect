@@ -28,167 +28,191 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const [statsResponse, allDataResponse] = await Promise.all([
-        axios.get('/admin/dashboard/stats', {
-          headers: { Authorization: `Bearer ${token}` }
+        axios.get("/admin/dashboard/stats", {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get('/admin/dashboard/all-data', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ])
-      setDashboardData(statsResponse.data)
-      setAllData(allDataResponse.data)
+        axios.get("/admin/dashboard/all-data", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      setDashboardData(statsResponse.data);
+      setAllData(allDataResponse.data);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error)
+      console.error("Error fetching dashboard data:", error);
       if (error.response?.status === 401) {
-        localStorage.removeItem('adminToken')
-        localStorage.removeItem('admin')
-        navigate('/admin-login')
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("admin");
+        navigate("/admin-login");
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fetchPendingApprovals = async () => {
     try {
       const [hospitalsResponse, ambulancesResponse] = await Promise.all([
-        axios.get('/admin/hospitals/pending', {
-          headers: { Authorization: `Bearer ${token}` }
+        axios.get("/admin/hospitals/pending", {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get('/admin/ambulances/pending', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ])
-      setPendingHospitals(hospitalsResponse.data.hospitals || [])
-      setPendingAmbulances(ambulancesResponse.data.ambulances || [])
+        axios.get("/admin/ambulances/pending", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      setPendingHospitals(hospitalsResponse.data.hospitals || []);
+      setPendingAmbulances(ambulancesResponse.data.ambulances || []);
     } catch (error) {
-      console.error('Error fetching pending approvals:', error)
+      console.error("Error fetching pending approvals:", error);
     }
-  }
+  };
 
   const fetchEmergencies = async () => {
     try {
-      const response = await axios.get('/admin/emergencies', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setEmergencies(response.data.emergencies || [])
+      const response = await axios.get("/admin/emergencies", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setEmergencies(response.data.emergencies || []);
     } catch (error) {
-      console.error('Error fetching emergencies:', error)
+      console.error("Error fetching emergencies:", error);
     }
-  }
+  };
 
   // Handle Hospital Approval
   const handleHospitalApproval = async (hospitalId, action) => {
     try {
-      if (action === 'approve') {
-        await axios.post(`/admin/hospitals/approve/${hospitalId}`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        alert('Hospital approved successfully!')
+      if (action === "approve") {
+        await axios.post(
+          `/admin/hospitals/approve/${hospitalId}`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        alert("Hospital approved successfully!");
       } else {
         await axios.delete(`/admin/hospitals/reject/${hospitalId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        alert('Hospital rejected successfully!')
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        alert("Hospital rejected successfully!");
       }
-      fetchPendingApprovals()
-      fetchDashboardData()
+      fetchPendingApprovals();
+      fetchDashboardData();
     } catch (error) {
-      console.error(`Error ${action}ing hospital:`, error)
-      alert(`Failed to ${action} hospital: ${error.response?.data?.message || error.message}`)
+      console.error(`Error ${action}ing hospital:`, error);
+      alert(
+        `Failed to ${action} hospital: ${error.response?.data?.message || error.message}`,
+      );
     }
-  }
+  };
 
   // Handle Ambulance Approval
   const handleAmbulanceApproval = async (ambulanceId, action) => {
     try {
-      if (action === 'approve') {
-        await axios.post(`/admin/ambulances/approve/${ambulanceId}`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        alert('Ambulance approved successfully!')
+      if (action === "approve") {
+        await axios.post(
+          `/admin/ambulances/approve/${ambulanceId}`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        alert("Ambulance approved successfully!");
       } else {
         await axios.delete(`/api/admin/ambulances/reject/${ambulanceId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        alert('Ambulance rejected successfully!')
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        alert("Ambulance rejected successfully!");
       }
-      fetchPendingApprovals()
-      fetchDashboardData()
+      fetchPendingApprovals();
+      fetchDashboardData();
     } catch (error) {
-      console.error(`Error ${action}ing ambulance:`, error)
-      alert(`Failed to ${action} ambulance: ${error.response?.data?.message || error.message}`)
+      console.error(`Error ${action}ing ambulance:`, error);
+      alert(
+        `Failed to ${action} ambulance: ${error.response?.data?.message || error.message}`,
+      );
     }
-  }
+  };
 
   // Handle Emergency Acceptance with Google Maps
   const handleEmergencyAccept = async (emergencyId, coordinates, location) => {
     try {
-      const response = await axios.post(`/admin/emergencies/${emergencyId}/assign`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await axios.post(
+        `/admin/emergencies/${emergencyId}/assign`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (response.data.success) {
-        openGoogleMaps(coordinates, location)
-        alert(`🚑 Emergency assigned successfully! Opening Google Maps...`)
-        fetchEmergencies()
-        fetchDashboardData()
+        openGoogleMaps(coordinates, location);
+        alert(`🚑 Emergency assigned successfully! Opening Google Maps...`);
+        fetchEmergencies();
+        fetchDashboardData();
       }
     } catch (error) {
-      console.error('Error accepting emergency:', error)
-      alert(`Failed to accept emergency: ${error.response?.data?.message || error.message}`)
+      console.error("Error accepting emergency:", error);
+      alert(
+        `Failed to accept emergency: ${error.response?.data?.message || error.message}`,
+      );
     }
-  }
+  };
 
   // Open Google Maps with destination coordinates
   const openGoogleMaps = (coordinates, location) => {
-    const { lat, lng } = coordinates
-    
+    const { lat, lng } = coordinates;
+
     if (lat && lng) {
-      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
-      window.open(mapsUrl, '_blank')
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+      window.open(mapsUrl, "_blank");
     } else {
-      const searchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
-      window.open(searchUrl, '_blank')
+      const searchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+      window.open(searchUrl, "_blank");
     }
-  }
+  };
 
   // Get current location and navigate to emergency
-  const navigateToEmergencyLocation = async (emergencyId, coordinates, location) => {
+  const navigateToEmergencyLocation = async (
+    emergencyId,
+    coordinates,
+    location,
+  ) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const userLat = position.coords.latitude
-          const userLng = position.coords.longitude
-          const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${coordinates.lat},${coordinates.lng}&travelmode=driving`
-          window.open(mapsUrl, '_blank')
-          handleEmergencyAccept(emergencyId, coordinates, location)
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${coordinates.lat},${coordinates.lng}&travelmode=driving`;
+          window.open(mapsUrl, "_blank");
+          handleEmergencyAccept(emergencyId, coordinates, location);
         },
         (error) => {
-          console.error('Error getting current location:', error)
-          openGoogleMaps(coordinates, location)
-        }
-      )
+          console.error("Error getting current location:", error);
+          openGoogleMaps(coordinates, location);
+        },
+      );
     } else {
-      openGoogleMaps(coordinates, location)
+      openGoogleMaps(coordinates, location);
     }
-  }
+  };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('admin')
-    navigate('/admin-login')
-  }
+  // const handleLogout = () => {
+  //   localStorage.removeItem('adminToken')
+  //   localStorage.removeItem('admin')
+  //   navigate('/admin-login')
+  // }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-purple-600 font-medium">Loading Admin Dashboard...</p>
+          <p className="mt-4 text-purple-600 font-medium">
+            Loading Admin Dashboard...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!dashboardData || !allData) {
@@ -198,8 +222,10 @@ const AdminDashboard = () => {
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">⚠️</span>
           </div>
-          <p className="text-red-600 text-lg font-semibold">Failed to load dashboard data</p>
-          <button 
+          <p className="text-red-600 text-lg font-semibold">
+            Failed to load dashboard data
+          </p>
+          <button
             onClick={fetchDashboardData}
             className="mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-medium"
           >
@@ -207,11 +233,11 @@ const AdminDashboard = () => {
           </button>
         </div>
       </div>
-    )
+    );
   }
 
-  const { stats } = dashboardData
-  const { hospitals, ambulances, fundRequests, bloodRequests } = allData
+  const { stats } = dashboardData;
+  const { hospitals, ambulances, fundRequests } = allData;
 
   const statsCards = [
     {

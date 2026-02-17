@@ -1,19 +1,19 @@
 const FundRequest = require("../models/FundRequest");
 const Hospital = require("../models/Hospital");
 
-/**
- * @desc    Create a new fund request (only hospital can request)
- * @route   POST /api/funds
- */
+
 module.exports.createFundRequest = async (req, res) => {
   try {
-    const { patientName, patientId, amountRequired, purpose, contactInfo } = req.body;
+    const { patientName, patientId, amountRequired, purpose, contactInfo } =
+      req.body;
 
     // Validate hospital
-    const hospitalId = req.user?.id; // assuming hospital is authenticated
+    const hospitalId = req.user?.id;
     const hospital = await Hospital.findById(hospitalId);
     if (!hospital) {
-      return res.status(403).json({ message: "Only hospitals can create fund requests" });
+      return res
+        .status(403)
+        .json({ message: "Only hospitals can create fund requests" });
     }
 
     // Create new fund request
@@ -29,19 +29,14 @@ module.exports.createFundRequest = async (req, res) => {
     });
 
     res.status(201).json({
-      message: "✅ Fund request created successfully",
+      message: " Fund request created successfully",
       fundRequest,
     });
   } catch (error) {
-    console.error("❌ Error creating fund request:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Get all fund requests (optional: filter by hospital)
- * @route   GET /api/funds
- */
 module.exports.getFundRequests = async (req, res) => {
   try {
     const { hospitalId } = req.query;
@@ -54,15 +49,10 @@ module.exports.getFundRequests = async (req, res) => {
 
     res.json({ fundRequests });
   } catch (error) {
-    console.error("❌ Error fetching fund requests:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Update fund request status (Admin or Hospital only)
- * @route   PUT /api/funds/:id/status
- */
 module.exports.updateFundRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -75,17 +65,12 @@ module.exports.updateFundRequestStatus = async (req, res) => {
     fundRequest.status = status;
     await fundRequest.save();
 
-    res.json({ message: "✅ Fund request status updated", fundRequest });
+    res.json({ message: " Fund request status updated", fundRequest });
   } catch (error) {
-    console.error("❌ Error updating fund request status:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Delete a fund request (only hospital that created it)
- * @route   DELETE /api/funds/:id
- */
 module.exports.deleteFundRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,22 +82,19 @@ module.exports.deleteFundRequest = async (req, res) => {
 
     // Ensure the same hospital is deleting
     if (fundRequest.hospital.toString() !== hospitalId) {
-      return res.status(403).json({ message: "Not authorized to delete this request" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this request" });
     }
 
     await fundRequest.deleteOne();
 
-    res.json({ message: "✅ Fund request deleted successfully" });
+    res.json({ message: " Fund request deleted successfully" });
   } catch (error) {
-    console.error("❌ Error deleting fund request:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Donate to a fund request
- * @route   POST /api/funds/donate
- */
 module.exports.donateToFundRequest = async (req, res) => {
   try {
     const {
@@ -142,7 +124,7 @@ module.exports.donateToFundRequest = async (req, res) => {
         .json({ message: "This fund request has already reached its goal" });
     }
 
-    // Auto-approve if still pending (optional - you can remove this if you want manual approval)
+    // Auto-approve if still pending
     if (fundRequest.status === "Pending") {
       fundRequest.status = "Approved";
     }
@@ -197,21 +179,12 @@ module.exports.donateToFundRequest = async (req, res) => {
 
     await fundRequest.save();
 
-    console.log(
-      `💰 Donor ${donorName} donated ₹${amount} to ${fundRequest.patientName}`
-    );
-
-    res.json({ message: "✅ Donation successful", fundRequest, donation });
+    res.json({ message: "Donation successful", fundRequest, donation });
   } catch (error) {
-    console.error("❌ Error processing donation:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Record cash donation for fund request (Hospital only)
- * @route   POST /api/funds/:id/cash-donation
- */
 module.exports.recordCashDonation = async (req, res) => {
   try {
     const { id } = req.params;
@@ -285,26 +258,17 @@ module.exports.recordCashDonation = async (req, res) => {
 
     await fundRequest.save();
 
-    console.log(
-      `💰 Cash donation recorded: ₹${amount} from ${donorName} for ${fundRequest.patientName}`
-    );
-
     res.json({
       success: true,
-      message: "✅ Cash donation recorded successfully",
+      message: "Cash donation recorded successfully",
       fundRequest,
       cashDonation,
     });
   } catch (error) {
-    console.error("❌ Error recording cash donation:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Get donation report for a fund request
- * @route   GET /api/funds/:id/report
- */
 module.exports.getFundRequestReport = async (req, res) => {
   try {
     const { id } = req.params;
@@ -345,15 +309,10 @@ module.exports.getFundRequestReport = async (req, res) => {
 
     res.json({ success: true, report });
   } catch (error) {
-    console.error("❌ Error fetching fund request report:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Verify fund request documents (Admin/Hospital only)
- * @route   POST /api/funds/:id/verify
- */
 module.exports.verifyFundRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -380,17 +339,12 @@ module.exports.verifyFundRequest = async (req, res) => {
 
     await fundRequest.save();
 
-    res.json({ message: "✅ Fund request verified successfully", fundRequest });
+    res.json({ message: "Fund request verified successfully", fundRequest });
   } catch (error) {
-    console.error("❌ Error verifying fund request:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Update a fund request (only hospital that created it)
- * @route   PUT /api/funds/:id
- */
 module.exports.updateFundRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -428,19 +382,14 @@ module.exports.updateFundRequest = async (req, res) => {
 
     res.json({
       success: true,
-      message: "✅ Fund request updated successfully",
+      message: "Fund request updated successfully",
       fundRequest,
     });
   } catch (error) {
-    console.error("❌ Error updating fund request:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-/**
- * @desc    Get fund requests for specific hospital
- * @route   GET /api/funds/hospital/my-requests
- */
 module.exports.getMyFundRequests = async (req, res) => {
   try {
     const hospitalId = req.user?.id;
@@ -454,7 +403,6 @@ module.exports.getMyFundRequests = async (req, res) => {
       fundRequests,
     });
   } catch (error) {
-    console.error("❌ Error fetching hospital fund requests:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
