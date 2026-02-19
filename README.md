@@ -68,7 +68,6 @@ In emergency medical situations, time is critical. Traditional methods of findin
 ### 🏥 Hospital Services
 - **Live Bed Availability**: Real-time tracking of general, ICU, ventilator, and pediatric ICU beds
 - **Smart Search**: Advanced location-based hospital search with filters
-- **Bed Reservation**: Quick bed reservation system (30-minute hold)
 - **Hospital Dashboard**: Manage bed inventory and update availability
 - **Direct Contact**: One-click call and navigate to hospital
 
@@ -84,7 +83,6 @@ In emergency medical situations, time is critical. Traditional methods of findin
 - **Progress Tracking**: Visual progress bars and goal tracking
 - **Donor Management**: Track contributions and donor information
 - **Admin Moderation**: Verification and approval workflow
-- **Transparency**: Detailed expense breakdown and status updates
 
 ### 🔔 Real-time Notifications
 - **WebSocket Integration**: Instant notifications without page refresh

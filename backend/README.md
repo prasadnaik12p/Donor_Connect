@@ -34,8 +34,7 @@ The Donor Connect backend is a comprehensive Node.js/Express API that powers a l
   - Contact information management
   
 - **Bed Availability System**
-  - Real-time bed tracking (General, ICU, Ventilator, Pediatric ICU)
-  - Bed reservation functionality
+  - Bed tracking (General, ICU, Ventilator, Pediatric ICU)
   - Automatic bed status updates
   - Location-based hospital search
   - Bed type filtering
@@ -81,7 +80,7 @@ The Donor Connect backend is a comprehensive Node.js/Express API that powers a l
   
 - **Donation Management**
   - Accept donations for specific requests
-  - Track donation amounts and donors
+  - Track donation amounts 
   - Progress tracking toward goal
   
 - **Request Status**
