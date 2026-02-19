@@ -5,42 +5,42 @@ const validator = require('validator');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Name is required'],
+    required: [true, "Name is required"],
     trim: true,
-    maxlength: [50, 'Name cannot be more than 50 characters']
+    maxlength: [50, "Name cannot be more than 50 characters"],
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: [true, "Email is required"],
     unique: true,
     lowercase: true,
-    validate: [validator.isEmail, 'Please provide a valid email']
+    validate: [validator.isEmail, "Please provide a valid email"],
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
-    select: false
+    required: [true, "Password is required"],
+    minlength: [6, "Password must be at least 6 characters"],
+    select: false,
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
+    required: [true, "Phone number is required"],
     validate: {
-      validator: function(v) {
+      validator: function (v) {
         return /^[0-9]{10}$/.test(v);
       },
-      message: 'Phone number must be 10 digits'
-    }
+      message: "Phone number must be 10 digits",
+    },
   },
   role: {
     type: String,
-    enum: ['donor', 'recipient', 'hospital', 'admin', 'user'],
-    default: 'donor'
+    enum: ["donor", "recipient", "hospital", "admin", "user"],
+    default: "donor",
   },
   bloodType: {
     type: String,
-    enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', null],
-    default: null
+    enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", null],
+    default: null,
   },
   location: {
     address: String,
@@ -49,12 +49,12 @@ const userSchema = new mongoose.Schema({
     pincode: String,
     coordinates: {
       lat: Number,
-      lng: Number
-    }
+      lng: Number,
+    },
   },
   isVerified: {
     type: Boolean,
-    default: false
+    default: false,
   },
   lastDonation: Date,
   healthInfo: {
@@ -62,44 +62,45 @@ const userSchema = new mongoose.Schema({
     height: Number,
     hasDiseases: Boolean,
     diseases: [String],
-    lastHealthCheck: Date
+    lastHealthCheck: Date,
   },
   avatar: String,
   emailVerificationToken: String,
+  emailVerificationExpires: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
 // Update updatedAt on save
-userSchema.pre('save', function(next) {
+userSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-
-userSchema.methods.correctPassword = async function(candidatePassword) {
+userSchema.methods.correctPassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Generate email verification token
-userSchema.methods.createEmailVerificationToken = function() {
-  const crypto = require('crypto');
-  this.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+userSchema.methods.createEmailVerificationToken = function () {
+  const crypto = require("crypto");
+  this.emailVerificationToken = crypto.randomBytes(32).toString("hex");
+  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
   return this.emailVerificationToken;
 };
 

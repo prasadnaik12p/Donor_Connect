@@ -23,22 +23,24 @@ const Register = () => {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const response = await axios.post('/auth/register', formData)
-      alert('🎉 Registration successful! Please check your email for verification.')
-      navigate('/login')
+      const response = await axios.post("/auth/register", formData);
+      alert(
+        "🎉 Registration successful! Please check your email for verification.",
+      );
+      navigate("/login");
     } catch (error) {
-      console.error('Registration error:', error)
-      alert(error.response?.data?.message || 'Registration failed')
+      console.error("Registration error:", error);
+      alert(error.response?.data?.message || "Registration failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
+  const bloodTypes = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 flex flex-col justify-center py-6 sm:py-8 md:py-12 px-3 sm:px-4 lg:px-8">
@@ -163,7 +165,9 @@ const Register = () => {
                         required
                         value={formData.phone}
                         onChange={handleChange}
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="1234567890"
+                        pattern="[0-9]{10}"
+                        title="Phone number must be exactly 10 digits"
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 placeholder-gray-400 text-gray-700"
                       />
                       <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -373,7 +377,7 @@ const Register = () => {
       </div>
 
       {/* Custom Animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);

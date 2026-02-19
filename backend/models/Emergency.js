@@ -39,13 +39,13 @@ const emergencySchema = new mongoose.Schema({
   completedAt: Date,
   createdAt: {
     type: Date,
-    default: Date.now,
-    expires: 86400 // Auto delete after 24 hours
+    default: Date.now
   }
 });
 
 // Geospatial index
 emergencySchema.index({ coordinates: "2dsphere" });
+// TTL index - Auto delete emergencies after 24 hours
 emergencySchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 module.exports = mongoose.model("Emergency", emergencySchema);

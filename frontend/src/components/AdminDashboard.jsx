@@ -118,7 +118,7 @@ const AdminDashboard = () => {
         );
         alert("Ambulance approved successfully!");
       } else {
-        await axios.delete(`/api/admin/ambulances/reject/${ambulanceId}`, {
+        await axios.delete(`/admin/ambulances/reject/${ambulanceId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Ambulance rejected successfully!");

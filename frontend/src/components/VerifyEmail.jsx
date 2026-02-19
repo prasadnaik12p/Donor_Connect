@@ -12,31 +12,35 @@ const VerifyEmail = () => {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      const token = searchParams.get('token');
+      const token = searchParams.get("token");
 
       if (!token) {
-        setVerificationStatus('error');
-        setMessage('Invalid verification link. Please check your email and try again.');
+        setVerificationStatus("error");
+        setMessage(
+          "Invalid verification link. Please check your email and try again.",
+        );
         return;
       }
 
       try {
-        // FIXED: Removed the broken template literal
         const response = await axios.get(`/auth/verify-email?token=${token}`);
-        
+
         if (response.data.success) {
-          setVerificationStatus('success');
+          setVerificationStatus("success");
           setMessage(response.data.message);
           setUserData(response.data.user);
-          
+
           // Store token and user data in localStorage
-          localStorage.setItem('token', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+          localStorage.setItem("token", response.data.token);
+          localStorage.setItem("user", JSON.stringify(response.data.user));
         }
       } catch (error) {
-        console.error('Email verification error:', error);
-        setVerificationStatus('error');
-        setMessage(error.response?.data?.message || 'Email verification failed. Please try again.');
+        console.error("Email verification error:", error);
+        setVerificationStatus("error");
+        setMessage(
+          error.response?.data?.message ||
+            "Email verification failed. Please try again.",
+        );
       }
     };
 
@@ -44,27 +48,31 @@ const VerifyEmail = () => {
   }, [searchParams]);
 
   const handleRedirect = () => {
-    navigate('/');
+    navigate("/");
   };
 
   const handleResendVerification = async () => {
     try {
       const emailToResend = userData?.email || resendEmail;
-      
+
       if (!emailToResend) {
-        setMessage('Please enter your email address to resend verification.');
+        setMessage("Please enter your email address to resend verification.");
         return;
       }
 
-      const response = await axios.post('/auth/resend-verification', {
-        email: emailToResend
+      const response = await axios.post("/auth/resend-verification", {
+        email: emailToResend,
       });
-      
+
       if (response.data.success) {
-        setMessage('Verification email sent successfully! Please check your inbox.');
+        setMessage(
+          "Verification email sent successfully! Please check your inbox.",
+        );
       }
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Failed to resend verification email.');
+      setMessage(
+        error.response?.data?.message || "Failed to resend verification email.",
+      );
     }
   };
 

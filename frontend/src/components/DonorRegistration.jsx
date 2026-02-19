@@ -27,10 +27,10 @@ const DonorRegistration = ({ user }) => {
     setError('');
 
     try {
-      const response = await fetch('/api/donors/register', {
-        method: 'POST',
+      const response = await fetch("/donors/register", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           username: user?.username || user?.email,

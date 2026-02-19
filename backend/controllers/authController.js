@@ -96,20 +96,52 @@ const verifyEmail = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      emailVerificationToken: token,
+    // First, check if a user with this token exists (even if expired)
+    let user = await User.findOne({
+      $or: [{ emailVerificationToken: token }, { isVerified: true }],
     });
+
+    // If user found, check if already verified
+    if (user && user.isVerified) {
+      // Generate token for already verified user
+      const authToken = createSecretToken(user._id, user.role);
+
+      return res.status(200).json({
+        success: true,
+        message: "Email is already verified",
+        alreadyVerified: true,
+        token: authToken,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          bloodType: user.bloodType,
+          isVerified: user.isVerified,
+        },
+      });
+    }
+
+    // Check if token is expired
+    if (user && user.emailVerificationExpires < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification token has expired. Please request a new one.",
+        expired: true,
+      });
+    }
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired verification token",
+        message: "Invalid verification token",
       });
     }
 
     // Mark user as verified
     user.isVerified = true;
     user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
     await user.save();
 
     // Generate auth token immediately after verification

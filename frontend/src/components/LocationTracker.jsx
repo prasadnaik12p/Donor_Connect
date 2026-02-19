@@ -14,10 +14,10 @@ const LocationTracker = ({ donorId }) => {
             ];
 
             try {
-              await fetch('/api/donors/location/update', {
-                method: 'PUT',
+              await fetch("/donors/location/update", {
+                method: "PUT",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   donorId,
