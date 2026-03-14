@@ -5,7 +5,7 @@ const {
   registerDonor,
   updateDonorInfo,
   updateLocation,
-} = require("../controllers/donorController");
+} = require("../controllers/donorcontroller");
 
 router.post("/register", registerDonor);
 router.put("/:donorId", updateDonorInfo);
